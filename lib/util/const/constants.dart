@@ -1,7 +1,7 @@
 // ignore_for_file: constant_identifier_names
 
 class Constants {
-  static const String appVersion = "2.0.1";
+  static const String appVersion = "2.0.2";
   static const int BATERIA = 95;
   static const int ULTIMA_MILLA = 97;
 }
