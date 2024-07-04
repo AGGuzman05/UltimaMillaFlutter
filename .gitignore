@@ -1,0 +1,14 @@
+# Ignorar todo
+*
+
+# No ignorar estos archivos necesarios para Git
+!.gitignore
+
+# No ignorar las carpetas y archivos en el directorio raíz
+!/
+
+# No ignorar la carpeta build/web y su contenido
+!/build
+/build/*
+!/build/web
+!/build/web/*
