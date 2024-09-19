@@ -79,7 +79,7 @@ Future<dynamic> doFetchJSON(String url, dynamic data,
         print("OBJETO DATA TIENE QUE SER VACIO SI METHOD=GET/HEAD");
         print(data);
       }
-      data = null; // No enviar body para GET/HEAD
+      data = null;
       if (method == "GET") {
         response = await http.get(uri, headers: headers);
       } else {
@@ -102,6 +102,32 @@ Future<dynamic> doFetchJSON(String url, dynamic data,
   }
 }
 
+Future<dynamic> doFetchJSONv2(String url, dynamic data,
+    [String method = "POST"]) async {
+  try {
+    if (method == "GET" || method == "HEAD") {
+      if (data != null && data.isNotEmpty) {
+        print("OBJETO DATA TIENE QUE SER VACIO SI METHOD=GET/HEAD");
+        print(data);
+      }
+      data = null;
+    }
+    final usuario = await obtenerUsuario();
+    final String token = usuario['token'] as String;
+    var response = await http.post(Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          "Content-Type": "application/json"
+        },
+        body: data != null ? jsonEncode(data) : null);
+    return jsonDecode(response.body);
+  } catch (err) {
+    print('doFetchJSONV2 err');
+    print(err);
+    return {"error": true};
+  }
+}
+
 Future<Map<String, String>> getHeaders(
     {Map<String, dynamic> config = const {}}) async {
   final Map<String, String> HEADERS = {
@@ -114,7 +140,7 @@ Future<Map<String, String>> getHeaders(
 
   if (authenticate) {
     final usuario = await obtenerUsuario();
-    final String token = usuario['body']['token'] as String;
+    final String token = usuario['token'] as String;
 
     if ((token is! String)) {
       throw Exception('missing bearer token');

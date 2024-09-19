@@ -4,11 +4,12 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:ultimaMillaFlutter/screen/entregaParcialScreen.dart';
 import 'package:ultimaMillaFlutter/screen/entregaTotalScreen.dart';
 import 'package:ultimaMillaFlutter/screen/noEntregadoScreen.dart';
 import 'package:ultimaMillaFlutter/services/shared_functions.dart';
-import 'package:ultimaMillaFlutter/util/const/base_url.dart';
+import 'package:ultimaMillaFlutter/util/const/parametroConexion.dart';
 import 'package:ultimaMillaFlutter/util/const/constants.dart';
 
 class TabGestionar extends StatefulWidget {
@@ -86,7 +87,7 @@ class _TabGestionarState extends State<TabGestionar> {
   Map<String, dynamic> puntoEntrega = {};
   double latActual = 0;
   double lngActual = 0;
-  double? distance;
+  double? distance = 0;
   int tiempoDescarga = 0;
   bool showConfirmarEnPausa = false;
   Timer? interval;
@@ -99,8 +100,9 @@ class _TabGestionarState extends State<TabGestionar> {
     getUbicacionVehiculo();
     interval = Timer.periodic(Duration(seconds: 10), (timer) async {
       await getUbicacionVehiculo();
+      /*
       try {
-        //distance = computeDistance([
+        distance = computeDistance([
         //  widget.pedido['latPuntoInteres'],
         //  widget.pedido['lngPuntoInteres']
         //], [
@@ -110,11 +112,10 @@ class _TabGestionarState extends State<TabGestionar> {
       } catch (error) {
         print(error);
       }
-      /*
+      */
       if (distance! < 0.03) {
         tiempoDescarga += 10;
       }
-      */
       setState(() {
         distance = distance;
         tiempoDescarga = tiempoDescarga;
@@ -161,7 +162,6 @@ class _TabGestionarState extends State<TabGestionar> {
   Future<List<dynamic>> obtenerRutas() async {
     try {
       var usuario = await obtenerUsuario();
-      // print(data);
       var dataOp = {
         'token': usuario['token'],
       };
@@ -169,8 +169,6 @@ class _TabGestionarState extends State<TabGestionar> {
         'data_op': dataOp,
         'op': 'READ-OBTENERASIGNACIONPEDIDOSULTIMAMILLA',
       });
-      // print('rutas');
-      // print(rutas);
       if (data['error'] == false) {
         return data['data'];
       } else {
@@ -181,16 +179,7 @@ class _TabGestionarState extends State<TabGestionar> {
       print(err);
       return [];
     }
-    // } else {
-    //   alert(message);
-    // }
   }
-
-  //void estadosEnRuta() {
-  //  setState(() {
-  //    modalEstadoRuta = true;
-  //  });
-  //}
 
   void openModalEstado() {
     setState(() {
@@ -527,7 +516,7 @@ class _TabGestionarState extends State<TabGestionar> {
           builder: (context) => EntregaTotalScreen(
             pedido: pedido,
             comentario: comentarioText,
-            idSubestado: idSubEstadoRuta,
+            idSubestado: SubEntregado.ENTREGA_EXITOSA,
             tiempoDescarga: tiempoDescarga,
             date: widget.date,
           ),
@@ -565,6 +554,7 @@ class _TabGestionarState extends State<TabGestionar> {
                 pedido: pedido,
                 comentario: comentarioText,
                 idSubestado: idSubEstadoRuta,
+                date: widget.date,
               ),
             ));
       } else {
@@ -656,158 +646,172 @@ double computeDistance(List<double> prevCoords, List<double> coords) {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Container(
-              padding: EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Destinario",
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold)),
-                      Text(
-                          jsonDecode(widget.pedido)['nombrePuntoInteres'] ?? "",
-                          style: TextStyle(fontSize: 16)),
-                    ],
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      if (idEstadoRuta == PENDIENTE_ENTREGA) {
-                        marcarComoEnRuta();
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            content: Text("Ruta ya iniciada anteriormente")));
-                      }
-                    },
+                  Container(
+                    padding: EdgeInsets.all(16),
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Icon(Icons.route),
-                        Text("Iniciar Ruta"),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            mostrarSeleccion
-                ? Column(
-                    children: [
-                      GestureDetector(
-                        onTap: openModalEstado,
-                        child: Container(
-                          color: colorEstadoRuta,
-                          margin: EdgeInsets.symmetric(horizontal: 20),
-                          padding: EdgeInsets.symmetric(vertical: 15),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("Destinario",
+                                style: TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.bold)),
+                            Container(
+                              constraints: BoxConstraints(
+                                maxWidth: 150,
+                              ),
+                              child: Text(
+                                  jsonDecode(widget.pedido)[
+                                          'nombrePuntoInteres'] ??
+                                      "",
+                                  style: TextStyle(fontSize: 16)),
+                            ),
+                          ],
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            if (idEstadoRuta == PENDIENTE_ENTREGA) {
+                              marcarComoEnRuta();
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content: Text(
+                                          "Ruta ya iniciada anteriormente")));
+                            }
+                          },
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Container(
-                                  margin: EdgeInsets.only(left: 12),
-                                  child: Text(estadoRuta,
-                                      style: TextStyle(fontSize: 16))),
-                              Icon(Icons.arrow_drop_down),
+                              Icon(Icons.route),
+                              Text("Iniciar Ruta"),
                             ],
                           ),
                         ),
-                      ),
-                      if (idEstadoRuta > 1 && requerido)
-                        GestureDetector(
-                          onTap: openModalSubEstado,
-                          child: Container(
-                            color: colorSubEstadoRuta,
-                            margin: EdgeInsets.symmetric(horizontal: 20),
-                            padding: EdgeInsets.symmetric(vertical: 15),
-                            child: Container(
-                              margin: EdgeInsets.only(left: 12),
+                      ],
+                    ),
+                  ),
+                  mostrarSeleccion
+                      ? Column(
+                          children: [
+                            GestureDetector(
+                              onTap: openModalEstado,
+                              child: Container(
+                                color: colorEstadoRuta,
+                                margin: EdgeInsets.symmetric(horizontal: 20),
+                                padding: EdgeInsets.symmetric(vertical: 15),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Container(
+                                        margin: EdgeInsets.only(left: 12),
+                                        child: Text(estadoRuta,
+                                            style: TextStyle(fontSize: 16))),
+                                    Icon(Icons.arrow_drop_down),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            if (idEstadoRuta > 1 && requerido)
+                              GestureDetector(
+                                onTap: openModalSubEstado,
+                                child: Container(
+                                  color: colorSubEstadoRuta,
+                                  margin: EdgeInsets.symmetric(horizontal: 20),
+                                  padding: EdgeInsets.symmetric(vertical: 15),
+                                  child: Container(
+                                    margin: EdgeInsets.only(left: 12),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(subEstadoRuta,
+                                                style: TextStyle(fontSize: 16)),
+                                            Icon(Icons.arrow_drop_down),
+                                          ],
+                                        ),
+                                        SizedBox(height: 10),
+                                        Text("Requerido",
+                                            style: TextStyle(fontSize: 12)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            Container(
+                              margin: EdgeInsets.all(20),
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(subEstadoRuta,
-                                          style: TextStyle(fontSize: 16)),
-                                      Icon(Icons.arrow_drop_down),
+                                      Text(labelFormulario,
+                                          style: TextStyle(fontSize: 14)),
+                                      SizedBox(),
                                     ],
                                   ),
                                   SizedBox(height: 10),
-                                  Text("Requerido",
-                                      style: TextStyle(fontSize: 12)),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      Container(
-                        margin: EdgeInsets.all(20),
-                        child: Column(
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(labelFormulario,
-                                    style: TextStyle(fontSize: 14)),
-                                SizedBox(),
-                              ],
-                            ),
-                            SizedBox(height: 10),
-                            if (mostrarComentario)
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  //Text("Comentario",
-                                  //    style: TextStyle(fontSize: 16)),
-                                  TextField(
-                                    decoration: InputDecoration(
-                                      hintText: "Comentario",
-                                      border: UnderlineInputBorder(),
+                                  if (mostrarComentario)
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        TextField(
+                                          decoration: InputDecoration(
+                                            hintText: "Comentario",
+                                            border: UnderlineInputBorder(),
+                                          ),
+                                          maxLines: null,
+                                          onChanged: (comentario) {
+                                            setState(() {
+                                              comentarioText = comentario;
+                                              caracteres = comentario.length;
+                                            });
+                                          },
+                                          maxLength: 1024,
+                                        ),
+                                      ],
                                     ),
-                                    maxLines: null,
-                                    onChanged: (comentario) {
-                                      setState(() {
-                                        comentarioText = comentario;
-                                        caracteres = comentario.length;
-                                      });
-                                    },
-                                    maxLength: 1024,
-                                  ),
                                 ],
                               ),
+                            ),
                           ],
-                        ),
-                      ),
-                    ],
-                  )
-                : Container(),
-
-            Container(
-              margin: EdgeInsets.symmetric(horizontal: 12),
-              child: ElevatedButton(
-                onPressed: navigateToCompletarFormulario,
-                child: Row(
-                  mainAxisSize: MainAxisSize.max,
-                  children: [
-                    SizedBox(
-                      width: 5,
-                    ),
-                    Text("Confirmar Gestion"),
-                  ],
-                ),
-                style: ElevatedButton.styleFrom(
-                  //primary: colorEstadoRuta,
-                  padding: EdgeInsets.symmetric(vertical: 15),
-                ),
+                        )
+                      : Container(),
+                ],
               ),
             ),
-            // Implementación de Modales aquí
-          ],
-        ),
+          ),
+          Container(
+            margin: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: ElevatedButton(
+              onPressed: navigateToCompletarFormulario,
+              child: Row(
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  SizedBox(
+                    width: 5,
+                  ),
+                  Text(
+                    "CONFIRMAR GESTION",
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1,11 +1,15 @@
 // ignore_for_file: prefer_const_constructors, library_private_types_in_public_api, avoid_print, unused_element, file_names
 
 import 'package:flutter/material.dart';
+import 'package:flutter_feather_icons/flutter_feather_icons.dart';
 import 'package:intl/intl.dart';
 import 'package:ultimaMillaFlutter/screen/auth/login_screen.dart';
+import 'package:ultimaMillaFlutter/screen/configuracionScreen.dart';
+import 'package:ultimaMillaFlutter/screen/nuevaVentaScreen.dart';
 import 'package:ultimaMillaFlutter/screen/rutasScreen.dart';
+import 'package:ultimaMillaFlutter/screen/widgets/menuDrawer.dart';
 import 'package:ultimaMillaFlutter/services/shared_functions.dart';
-import 'package:ultimaMillaFlutter/util/const/base_url.dart';
+import 'package:ultimaMillaFlutter/util/const/parametroConexion.dart';
 import 'package:ultimaMillaFlutter/util/const/constants.dart';
 
 class PendientesScreen extends StatelessWidget {
@@ -25,6 +29,12 @@ class Pendientes extends StatefulWidget {
 }
 
 class _PendientesState extends State<Pendientes> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  void openCustomDrawer() {
+    _scaffoldKey.currentState?.openDrawer();
+  }
+
   int cantidad = 0;
   Map<String, int>? detalleCantidad;
   bool rutaIniciada = false;
@@ -141,36 +151,68 @@ class _PendientesState extends State<Pendientes> {
       return PopScope(
         canPop: false,
         child: Scaffold(
+          key: _scaffoldKey,
           appBar: AppBar(
             title: Text('TODOS LOS PENDIENTES'),
-            automaticallyImplyLeading: false,
+            //automaticallyImplyLeading: false,
             centerTitle: true,
+            leading: IconButton(
+              icon: const Icon(FeatherIcons.menu),
+              onPressed: openCustomDrawer,
+            ),
             actions: [
               IconButton(
-                icon: Icon(Icons.logout),
+                icon: const Icon(FeatherIcons.logOut),
                 onPressed: () async {
                   await clearUserData();
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => LoginScreen(),
-                    ),
+                    MaterialPageRoute(builder: (context) => LoginScreen()),
                   );
                 },
               ),
             ],
           ),
-          body: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                children: [
-                  _buildUserInfo(userData),
-                  if (userData['idEmpresa'] != 6290) _buildTotalPendientes(),
-                  if (detalleCantidad != null) _buildDetalleCantidad(),
-                ],
+          drawer: menuDrawer(context, Screens.PENDIENTES),
+          body: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      children: [
+                        _buildUserInfo(userData),
+                        if (userData['idEmpresa'] != 6290)
+                          _buildTotalPendientes(),
+                        if (detalleCantidad != null) _buildDetalleCantidad(),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            ),
+              if (userData['idEmpresa'] == PLASTICO ||
+                  userData['idEmpresa'] == VINOSKOHLBERG)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: FloatingActionButton(
+                        child: Text("+"),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => NuevaVentaScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+            ],
           ),
           bottomNavigationBar: Padding(
             padding: const EdgeInsets.all(8.0),

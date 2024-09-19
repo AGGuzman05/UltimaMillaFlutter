@@ -680,6 +680,12 @@
       "languageVersion": "2.19"
     },
     {
+      "name": "shimmer",
+      "rootUri": "file:///C:/Users/alvar/AppData/Local/Pub/Cache/hosted/pub.dev/shimmer-3.0.0",
+      "packageUri": "lib/",
+      "languageVersion": "2.17"
+    },
+    {
       "name": "signature",
       "rootUri": "file:///C:/Users/alvar/AppData/Local/Pub/Cache/hosted/pub.dev/signature-5.5.0",
       "packageUri": "lib/",
@@ -764,6 +770,54 @@
       "languageVersion": "2.17"
     },
     {
+      "name": "url_launcher",
+      "rootUri": "file:///C:/Users/alvar/AppData/Local/Pub/Cache/hosted/pub.dev/url_launcher-6.3.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.2"
+    },
+    {
+      "name": "url_launcher_android",
+      "rootUri": "file:///C:/Users/alvar/AppData/Local/Pub/Cache/hosted/pub.dev/url_launcher_android-6.3.2",
+      "packageUri": "lib/",
+      "languageVersion": "3.2"
+    },
+    {
+      "name": "url_launcher_ios",
+      "rootUri": "file:///C:/Users/alvar/AppData/Local/Pub/Cache/hosted/pub.dev/url_launcher_ios-6.3.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.2"
+    },
+    {
+      "name": "url_launcher_linux",
+      "rootUri": "file:///C:/Users/alvar/AppData/Local/Pub/Cache/hosted/pub.dev/url_launcher_linux-3.1.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
+      "name": "url_launcher_macos",
+      "rootUri": "file:///C:/Users/alvar/AppData/Local/Pub/Cache/hosted/pub.dev/url_launcher_macos-3.2.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.1"
+    },
+    {
+      "name": "url_launcher_platform_interface",
+      "rootUri": "file:///C:/Users/alvar/AppData/Local/Pub/Cache/hosted/pub.dev/url_launcher_platform_interface-2.3.2",
+      "packageUri": "lib/",
+      "languageVersion": "3.1"
+    },
+    {
+      "name": "url_launcher_web",
+      "rootUri": "file:///C:/Users/alvar/AppData/Local/Pub/Cache/hosted/pub.dev/url_launcher_web-2.3.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
+    },
+    {
+      "name": "url_launcher_windows",
+      "rootUri": "file:///C:/Users/alvar/AppData/Local/Pub/Cache/hosted/pub.dev/url_launcher_windows-3.1.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
       "name": "url_strategy",
       "rootUri": "file:///C:/Users/alvar/AppData/Local/Pub/Cache/hosted/pub.dev/url_strategy-0.2.0",
       "packageUri": "lib/",
@@ -842,7 +896,7 @@
       "languageVersion": "3.2"
     }
   ],
-  "generated": "2024-07-03T15:14:17.587745Z",
+  "generated": "2024-07-26T16:25:12.096234Z",
   "generator": "pub",
   "generatorVersion": "3.3.2"
 }

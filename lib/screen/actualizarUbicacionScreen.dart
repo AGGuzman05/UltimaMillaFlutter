@@ -9,7 +9,7 @@ import 'package:ultimaMillaFlutter/screen/QRScreen.dart';
 import 'package:ultimaMillaFlutter/screen/modals/DialogHelper.dart';
 import 'package:ultimaMillaFlutter/screen/pendientesScreen.dart';
 import 'package:ultimaMillaFlutter/services/shared_functions.dart';
-import 'package:ultimaMillaFlutter/util/const/base_url.dart';
+import 'package:ultimaMillaFlutter/util/const/parametroConexion.dart';
 import 'package:ultimaMillaFlutter/util/const/constants.dart';
 
 class ActualizarUbicacionScreen extends StatefulWidget {

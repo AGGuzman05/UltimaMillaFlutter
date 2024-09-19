@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:ultimaMillaFlutter/screen/auth/login_screen.dart';
 import 'package:ultimaMillaFlutter/screen/pendientesScreen.dart';
 import 'package:ultimaMillaFlutter/services/shared_functions.dart';
-import 'package:ultimaMillaFlutter/util/const/base_url.dart';
+import 'package:ultimaMillaFlutter/util/const/parametroConexion.dart';
 
 Future<void> main() async {
   runApp(MyApp());
@@ -201,27 +201,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       print("updateWithNoToken err: $err");
     }
   }
-/*
-  Future<void> _handleAppStateChange(AppLifecycleState state) async {
-    if (_lastLifecycleState == AppLifecycleState.inactive || _lastLifecycleState == AppLifecycleState.paused) {
-      if (state == AppLifecycleState.resumed) {
-        print("App has come to the foreground!");
-        if (loggedIn) {
-          updateCredentias();
-        }
-      } else {
-        print("app in background");
-        // Manejo de nivel de batería y otras operaciones al ir al fondo
-        if (numeroIntervaloUpdateCredentials != null) {
-          numeroIntervaloUpdateCredentials!.cancel();
-        }
-      }
-    }
-    
-    setState(() {
-      _lastLifecycleState = state;
-    });
-  }*/
 
   @override
   Widget build(BuildContext context) {

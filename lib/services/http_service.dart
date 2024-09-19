@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ultimaMillaFlutter/model/api_result.dart';
 import 'package:ultimaMillaFlutter/util/const/api_string_code.dart';
-import 'package:ultimaMillaFlutter/util/const/base_url.dart';
+import 'package:ultimaMillaFlutter/util/const/parametroConexion.dart';
 import 'package:ultimaMillaFlutter/util/const/sharedpreferences_key.dart';
 
 class HttpService {

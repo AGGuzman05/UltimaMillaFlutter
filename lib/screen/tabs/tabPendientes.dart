@@ -1,7 +1,10 @@
 // ignore_for_file: prefer_const_constructors, sort_child_properties_last, non_constant_identifier_names, avoid_print, library_private_types_in_public_api, use_build_context_synchronously, prefer_typing_uninitialized_variables
 
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
@@ -12,15 +15,14 @@ import 'package:ultimaMillaFlutter/screen/actualizarUbicacionScreen.dart';
 import 'package:ultimaMillaFlutter/screen/detallePedidoScreen.dart';
 import 'package:ultimaMillaFlutter/screen/modals/DialogHelper.dart';
 import 'package:ultimaMillaFlutter/services/shared_functions.dart';
-import 'package:ultimaMillaFlutter/util/const/base_url.dart';
+import 'package:ultimaMillaFlutter/util/const/parametroConexion.dart';
 import 'package:ultimaMillaFlutter/util/const/colors.dart';
 import 'package:ultimaMillaFlutter/util/const/constants.dart';
 
 class TabPendientes extends StatefulWidget {
-  final dynamic pedido;
   final String date;
 
-  const TabPendientes({super.key, required this.pedido, required this.date});
+  const TabPendientes({super.key, required this.date});
 
   @override
   _TabPendientesState createState() => _TabPendientesState();
@@ -38,6 +40,7 @@ class _TabPendientesState extends State<TabPendientes> {
   List<dynamic> grupoPedidosSelected = [];
   Map<String, dynamic> destination = {};
   Map<String, dynamic> mapDirectionResult = {};
+  List<LatLng> polylineCoordinates = [];
   String message = "No hay conexion a Internet.";
   bool showCalendar = false;
   bool filterByPuntoInteres = false;
@@ -47,17 +50,27 @@ class _TabPendientesState extends State<TabPendientes> {
   bool showProgressDialog = false;
   List<dynamic> sinCompletar = [];
   dynamic usuario = {};
-  Map latlng = {};
+  Map vehiclePosition = {};
   BitmapDescriptor? truckIcon;
+  late Timer timer;
 
   @override
   void initState() {
     super.initState();
     getUbicacionVehiculo();
+    Timer.periodic(Duration(seconds: 15), (Timer timer) {
+      getUbicacionVehiculo();
+    });
     _handleDate();
     _getPedidosSinCompletar();
     getRutasFiltradas();
     _loadTruckIcon();
+  }
+
+  @override
+  void dispose() {
+    timer.cancel(); // Cancela el Timer para liberar recursos
+    super.dispose();
   }
 
   Future<void> getUbicacionVehiculo() async {
@@ -74,7 +87,7 @@ class _TabPendientesState extends State<TabPendientes> {
       });
       if (response['error'] == false) {
         setState(() {
-          latlng = {
+          vehiclePosition = {
             'lat': response['data'][0]['LATITUD'],
             'lng': response['data'][0]['LONGITUD'],
           };
@@ -97,7 +110,7 @@ class _TabPendientesState extends State<TabPendientes> {
 
   _handleDate() {
     setState(() {
-      selectedDate = DateTime.parse(widget.pedido);
+      selectedDate = DateTime.parse(widget.date);
     });
   }
 
@@ -406,82 +419,30 @@ class _TabPendientesState extends State<TabPendientes> {
       ),
     );
   }
-  /*
-
-  Future<void> finalizarRutaGeneral() async {
-    setState(() {
-      showModal = false;
-    });
-
-    var usuario = await obtenerUsuario();
-
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    String listaPedidos = prefs.getString(KEYS.pedidosMarcados) ?? "[]";
-    if (listaPedidos == null) {
-      await prefs.setString(KEYS.pedidosMarcados, "[]");
-      listaPedidos = "[]";
-    }
-
-    String listaAsignaciones =
-        prefs.getString(KEYS.liberarDeAsignacion) ?? "[]";
-    if (listaAsignaciones == null) {
-      await prefs.setString(KEYS.liberarDeAsignacion, "[]");
-      listaAsignaciones = "[]";
-    }
-
-    Map<String, dynamic> data_op = {
-      'token': usuario.token,
-      'listaPedidos': json.decode(listaPedidos),
-    };
-
-    Map<String, dynamic> data_op2 = {
-      'token': usuario.token,
-      'listaPedidos': json.decode(listaAsignaciones),
-    };
-
-    var data = await doFetchJSON(BASE_URL, {
-      'data_op': data_op,
-      'op': "CREATE-CREARDETALLEENTREGAULTIMAMILLA",
-    });
-
-    var data2 = await doFetchJSON(BASE_URL, {
-      'data_op': data_op2,
-      'op': "UPDATE-UMPEDIDOAFINALIZADOTULTIMAMILLA",
-    });
-
-    if (data['error'] == false && data2['error'] == false) {
-      DialogHelper.showSimpleDialog(context, "Alerta",
-          "Se finalizaron los pedidos de la ruta. La unidad está disponible para nuevas asignaciones.");
-      await prefs.setString(KEYS.pedidosMarcados, "[]");
-      await prefs.setString(KEYS.liberarDeAsignacion, "[]");
-      var rutas = await obtenerRutas();
-      var pdtes = rutas.where((obj) {
-        return obj['idConceptoEstadoPedido'] == PENDIENTE_ENTREGA ||
-            obj['idConceptoEstadoPedido'] == EN_RUTA ||
-            obj['idConceptoEstadoPedido'] == EN_PAUSA;
-      }).toList();
-      setState(() {
-        pendientes = pdtes;
-      });
-    } else {
-      print("Data error: ${data['error']}");
-      print("Data2 error: ${data2['error']}");
-    }
-  }
-  */
 
   _mapView(List<dynamic> rutas) {
-    if (latlng.isEmpty) {
+    if (vehiclePosition.isEmpty) {
       return Center(child: CircularProgressIndicator());
     } else {
       return SizedBox(
         height: MediaQuery.of(context).size.height,
-        width: MediaQuery.of(context).size.width,
         child: GoogleMap(
+            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+              Factory<OneSequenceGestureRecognizer>(
+                () => EagerGestureRecognizer(),
+              ),
+            },
+            polylines: {
+              //Polyline(
+              //  polylineId: PolylineId('route'),
+              //  points: polylineCoordinates,
+              //  color: Colors.blue,
+              //  width: 5,
+              //),
+            },
             onMapCreated: _onMapCreated,
             initialCameraPosition: CameraPosition(
-              target: LatLng(latlng['lat'], latlng['lng']),
+              target: LatLng(vehiclePosition['lat'], vehiclePosition['lng']),
               zoom: 12,
             ),
             myLocationEnabled: true,
@@ -489,6 +450,21 @@ class _TabPendientesState extends State<TabPendientes> {
       );
     }
   }
+  /*
+   void _getPolyline() async {
+    PolylineResult result = await polylinePoints.getRouteBetweenCoordinates(
+      googleAPIKey,
+      PointLatLng(_origin.latitude, _origin.longitude),
+      PointLatLng(_destination.latitude, _destination.longitude),
+    );
+    if (result.points.isNotEmpty) {
+      result.points.forEach((PointLatLng point) {
+        polylineCoordinates.add(LatLng(point.latitude, point.longitude));
+      });
+      setState(() {});
+    }
+  }
+  */
 
   Set<Marker> _createMarkers() {
     Set<Marker> markers = {};
@@ -496,7 +472,7 @@ class _TabPendientesState extends State<TabPendientes> {
     markers.add(
       Marker(
         markerId: MarkerId('initial_position'),
-        position: LatLng(latlng['lat'], latlng['lng']),
+        position: LatLng(vehiclePosition['lat'], vehiclePosition['lng']),
         icon: truckIcon!,
       ),
     );
@@ -506,8 +482,17 @@ class _TabPendientesState extends State<TabPendientes> {
         Marker(
           markerId: MarkerId(marker['id'].toString()),
           position: LatLng(
-            double.parse(marker['latPuntoInteres']),
-            double.parse(marker['lngPuntoInteres']),
+            double.tryParse(marker['latPuntoInteres'].toString()) ?? 0.0,
+            double.tryParse(marker['lngPuntoInteres'].toString()) ?? 0.0,
+          ),
+          infoWindow: InfoWindow(
+            title: "GESTIONAR PEDIDO",
+            snippet: "${marker['nombrePuntoInteres']}",
+            //snippet: 'Referencia de Dirección del Punto de Interés\nTiempo: 15 min\nDistancia: 5 km\nGestionar pedido',
+            onTap: () {
+              print(marker);
+              verDetalle(jsonEncode(marker));
+            },
           ),
           onTap: () {
             setState(() {
@@ -607,14 +592,20 @@ class _TabPendientesState extends State<TabPendientes> {
                             ),
                             SizedBox(width: 8.0),
                             Text(
-                              latlng.isNotEmpty
+                              vehiclePosition.isNotEmpty
                                   ? getKilometros(
-                                      latlng['lat'],
-                                      latlng['lng'],
-                                      double.parse(
-                                        item['latPuntoInteres'],
-                                      ),
-                                      double.parse(item['lngPuntoInteres']))
+                                      double.tryParse(vehiclePosition['lat']
+                                              .toString()) ??
+                                          0.0,
+                                      double.tryParse(vehiclePosition['lng']
+                                              .toString()) ??
+                                          0.0,
+                                      double.tryParse(item['latPuntoInteres']
+                                              .toString()) ??
+                                          0.0,
+                                      double.tryParse(item['lngPuntoInteres']
+                                              .toString()) ??
+                                          0.0)
                                   : 'Calculando...',
                               style: TextStyle(fontSize: 14),
                             ),
@@ -679,7 +670,7 @@ class _TabPendientesState extends State<TabPendientes> {
     );
   }
 
-  Widget ViewAgrpadosPorCliente() {
+  Widget ViewAgrupadosPorCliente() {
     return SingleChildScrollView(
         child: agrupadosPorPuntoInteres.isNotEmpty
             ? ListView.builder(
@@ -753,19 +744,24 @@ class _TabPendientesState extends State<TabPendientes> {
                               item[0]['nombreCliente'] ?? '',
                               style: TextStyle(fontSize: 16.0),
                             ),
-                            /*
                             Text(
-                              latlng['lat'] != null && latlng['lng'] != null
-                                  ? '${getKilometros(
-                                      ubicacion_actual.latitude,
-                                      ubicacion_actual.longitude,
-                                      item[0]['latPuntoInteres'],
-                                      item[0]['lngPuntoInteres'],
-                                    )} km'
+                              vehiclePosition.isNotEmpty
+                                  ? getKilometros(
+                                      double.tryParse(vehiclePosition['lat']
+                                              .toString()) ??
+                                          0.0,
+                                      double.tryParse(vehiclePosition['lng']
+                                              .toString()) ??
+                                          0.0,
+                                      double.tryParse(item['latPuntoInteres']
+                                              .toString()) ??
+                                          0.0,
+                                      double.tryParse(item['lngPuntoInteres']
+                                              .toString()) ??
+                                          0.0)
                                   : 'Calculando...',
-                              style: TextStyle(fontSize: 16.0),
+                              style: TextStyle(fontSize: 14),
                             ),
-                            */
                           ],
                         ),
                       ),
@@ -926,299 +922,278 @@ class _TabPendientesState extends State<TabPendientes> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        if (usuario?['idEmpresa'] == VINOSKOHLBERG)
-          Positioned(
-            bottom: 4,
-            right: 4,
-            child: Container(
-              margin: EdgeInsets.all(20),
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: Color(0xFF046D8B),
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: IconButton(
-                icon: Text(
-                  '+',
-                  style: TextStyle(fontSize: 35, color: Colors.white),
-                ),
-                onPressed: () {
-                  //Navigator.push(context, NuevaVentaScreen());
-                },
-              ),
-            ),
-          ),
-        Column(
-          children: [
-            Container(
-              width: double.infinity,
-              color: Color(0xFF21203F),
-              padding: EdgeInsets.all(10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => setState(() {
-                          showCalendar = true;
-                        }),
-                        child: Container(
-                          height: 40,
-                          decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(7))),
-                          padding: EdgeInsets.symmetric(horizontal: 5),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.event,
-                              ),
-                              Text(
-                                DateFormat('yyyy-MM-dd').format(selectedDate),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      Container(
-                        margin: EdgeInsets.only(left: 4),
-                        height: 40,
-                        width: 150,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.all(Radius.circular(7)),
-                          border: Border(
-                              bottom: BorderSide(
-                                  color: Color(0xFFCCCCCC), width: 2)),
-                        ),
-                        child: TextField(
-                          decoration: InputDecoration(
-                            contentPadding: EdgeInsets.only(top: -7, left: 4),
-                            hintText: 'Buscar...',
-                            border: InputBorder.none,
-                          ),
-                          onChanged: buscar,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      /*
-                      Switch(
-                        value: filterByPuntoInteres,
-                        onChanged: (val) {
-                          setState(() {
-                            filterByPuntoInteres = val;
-                          });
-                        },
-                        thumbColor: MaterialStateProperty.all(Colors.white),
-                      ),*/
-                      if (sinCompletar.isNotEmpty)
+    return Scaffold(
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              Container(
+                width: double.infinity,
+                color: Color(0xFF21203F),
+                padding: EdgeInsets.all(10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
                         GestureDetector(
                           onTap: () => setState(() {
-                            showPedidosRezagados = true;
+                            showCalendar = true;
                           }),
                           child: Container(
+                            height: 40,
+                            decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius:
+                                    BorderRadius.all(Radius.circular(7))),
+                            padding: EdgeInsets.symmetric(horizontal: 5),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.event,
+                                ),
+                                Text(
+                                  DateFormat('yyyy-MM-dd').format(selectedDate),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Container(
+                          margin: EdgeInsets.only(left: 4),
+                          height: 40,
+                          width: 150,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.all(Radius.circular(7)),
+                            border: Border(
+                                bottom: BorderSide(
+                                    color: Color(0xFFCCCCCC), width: 2)),
+                          ),
+                          child: TextField(
+                            decoration: InputDecoration(
+                              contentPadding: EdgeInsets.only(top: -7, left: 4),
+                              hintText: 'Buscar...',
+                              border: InputBorder.none,
+                            ),
+                            onChanged: buscar,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        /*
+                        Switch(
+                          value: filterByPuntoInteres,
+                          onChanged: (val) {
+                            setState(() {
+                              filterByPuntoInteres = val;
+                            });
+                          },
+                          thumbColor: MaterialStateProperty.all(Colors.white),
+                        ),*/
+                        if (sinCompletar.isNotEmpty)
+                          GestureDetector(
+                            onTap: () => setState(() {
+                              showPedidosRezagados = true;
+                            }),
+                            child: Container(
+                              padding: EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.lightBlue,
+                                borderRadius: BorderRadius.circular(7),
+                              ),
+                              child: Icon(
+                                Icons.local_shipping_outlined,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        GestureDetector(
+                          onTap: () => setState(() {
+                            showMapView = !showMapView;
+                            print(rutasTotales);
+                          }),
+                          child: Container(
+                            margin: EdgeInsets.only(left: 4),
                             padding: EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: Colors.lightBlue,
+                              color: Color(0xFFFA6532),
                               borderRadius: BorderRadius.circular(7),
                             ),
                             child: Icon(
-                              Icons.local_shipping_outlined,
+                              showMapView ? Icons.list_alt : Icons.map,
                               color: Colors.white,
                             ),
                           ),
                         ),
-                      GestureDetector(
-                        onTap: () => setState(() {
-                          showMapView = !showMapView;
-                          print(rutasTotales);
-                        }),
-                        child: Container(
-                          margin: EdgeInsets.only(left: 4),
-                          padding: EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Color(0xFFFA6532),
-                            borderRadius: BorderRadius.circular(7),
-                          ),
-                          child: Icon(
-                            showMapView ? Icons.list_alt : Icons.map,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: showMapView
-                  ? _mapView(rutasTotales)
-                  : pendientesPorFecha.isNotEmpty
-                      ? filterByPuntoInteres
-                          ? ViewAgrpadosPorCliente()
-                          : ViewListaPendientes()
-                      : Center(
-                          child: Text(
-                            'No hay asignaciones pendientes para la fecha seleccionada o para la busqueda realizada.',
-                            style: TextStyle(
-                              fontSize: 18,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-            ),
-          ],
-        ),
-        if (showModal)
-          Center(
-            child: Container(
-              padding: EdgeInsets.all(20),
-              margin: EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Desea finalizar su ruta?',
-                    style: TextStyle(
-                      fontSize: 18,
+                      ],
                     ),
-                  ),
-                  SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      ElevatedButton(
-                        onPressed: null,
-                        child: Text('Si', style: TextStyle(fontSize: 18)),
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.BoltrackMenuBlue),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: showMapView
+                    ? _mapView(pendientesPorFecha)
+                    : pendientesPorFecha.isNotEmpty
+                        ? filterByPuntoInteres
+                            ? ViewAgrupadosPorCliente()
+                            : ViewListaPendientes()
+                        : Center(
+                            child: Text(
+                              'No hay asignaciones pendientes para la fecha seleccionada o para la busqueda realizada.',
+                              style: TextStyle(
+                                fontSize: 18,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+              ),
+            ],
+          ),
+          if (showModal)
+            Center(
+              child: Container(
+                padding: EdgeInsets.all(20),
+                margin: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Desea finalizar su ruta?',
+                      style: TextStyle(
+                        fontSize: 18,
                       ),
-                      ElevatedButton(
-                        onPressed: () => setState(() {
-                          showModal = false;
-                        }),
-                        child: Text('No', style: TextStyle(fontSize: 18)),
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.BoltrackMenuBlue),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                    SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ElevatedButton(
+                          onPressed: null,
+                          child: Text('Si', style: TextStyle(fontSize: 18)),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.BoltrackMenuBlue),
+                        ),
+                        ElevatedButton(
+                          onPressed: () => setState(() {
+                            showModal = false;
+                          }),
+                          child: Text('No', style: TextStyle(fontSize: 18)),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.BoltrackMenuBlue),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        if (showDetallePedidosModal)
-          Center(
-            child: Container(
-              padding: EdgeInsets.all(20),
-              margin: EdgeInsets.all(20),
-              decoration: BoxDecoration(
+          if (showDetallePedidosModal)
+            Center(
+              child: Container(
+                padding: EdgeInsets.all(20),
+                margin: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        SizedBox(width: 10),
+                        Text('Seleccione un pedido para gestionarlo'),
+                        IconButton(
+                          icon: Icon(Icons.close, color: Colors.red),
+                          onPressed: () => setState(() {
+                            showDetallePedidosModal = false;
+                            grupoPedidosSelected = [];
+                          }),
+                        ),
+                      ],
+                    ),
+                    ViewDetallePedidosModal(),
+                  ],
+                ),
+              ),
+            ),
+          if (showPedidosRezagados)
+            Center(
+              child: Container(
+                padding: EdgeInsets.all(20),
+                margin: EdgeInsets.all(20),
+                width: MediaQuery.of(context).size.width,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        SizedBox(width: 10),
+                        Text(
+                          'ENTREGAS \n NO COMPLETADAS',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close, color: Colors.red),
+                          onPressed: () => setState(() {
+                            showPedidosRezagados = false;
+                          }),
+                        ),
+                      ],
+                    ),
+                    ViewPedidosRezagados(),
+                  ],
+                ),
+              ),
+            ),
+          if (showProgressDialog)
+            Center(
+              child: CircularProgressIndicator(),
+            ),
+          if (showCalendar)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                margin: EdgeInsets.all(10),
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      SizedBox(width: 10),
-                      Text('Seleccione un pedido para gestionarlo'),
-                      IconButton(
-                        icon: Icon(Icons.close, color: Colors.red),
-                        onPressed: () => setState(() {
-                          showDetallePedidosModal = false;
-                          grupoPedidosSelected = [];
-                        }),
-                      ),
-                    ],
-                  ),
-                  ViewDetallePedidosModal(),
-                ],
+                child: CalendarDatePicker(
+                  initialDate:
+                      DateFormat('yyyy-MM-dd').parse(selectedDate.toString()),
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                  onDateChanged: (date) {
+                    setState(() {
+                      selectedDate =
+                          DateFormat('yyyy-MM-dd').parse(date.toString());
+                      showCalendar = false;
+                      getRutasFiltradas();
+                    });
+                  },
+                ),
               ),
             ),
-          ),
-        if (showPedidosRezagados)
-          Center(
-            child: Container(
-              padding: EdgeInsets.all(20),
-              margin: EdgeInsets.all(20),
-              width: MediaQuery.of(context).size.width,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      SizedBox(width: 10),
-                      Text(
-                        'ENTREGAS \n NO COMPLETADAS',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontWeight: FontWeight.w900),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.close, color: Colors.red),
-                        onPressed: () => setState(() {
-                          showPedidosRezagados = false;
-                        }),
-                      ),
-                    ],
-                  ),
-                  ViewPedidosRezagados(),
-                ],
-              ),
-            ),
-          ),
-        if (showProgressDialog)
-          Center(
-            child: CircularProgressIndicator(),
-          ),
-        if (showCalendar)
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              margin: EdgeInsets.all(10),
-              color: Colors.white,
-              child: CalendarDatePicker(
-                initialDate:
-                    DateFormat('yyyy-MM-dd').parse(selectedDate.toString()),
-                firstDate: DateTime(2000),
-                lastDate: DateTime(2100),
-                onDateChanged: (date) {
-                  setState(() {
-                    selectedDate =
-                        DateFormat('yyyy-MM-dd').parse(date.toString());
-                    showCalendar = false;
-                    getRutasFiltradas();
-                  });
-                },
-              ),
-            ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

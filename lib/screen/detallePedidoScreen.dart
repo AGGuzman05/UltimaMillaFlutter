@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:ultimaMillaFlutter/screen/tabs/tabGestionarPedido.dart';
+import 'package:ultimaMillaFlutter/screen/tabs/tabInfoPedido.dart';
 
 class DetalleScreen extends StatelessWidget {
   final dynamic pedido;
@@ -28,7 +29,7 @@ class DetalleScreen extends StatelessWidget {
         body: TabBarView(
           children: [
             TabGestionar(pedido: pedido, date: date),
-            Center(child: Text("Informacion del pedido")),
+            TabInfoPedido(pedido: pedido),
           ],
         ),
       ),

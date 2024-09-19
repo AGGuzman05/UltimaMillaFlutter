@@ -12,7 +12,7 @@ import 'package:ultimaMillaFlutter/screen/QRScreen.dart';
 import 'package:ultimaMillaFlutter/screen/actualizarUbicacionScreen.dart';
 import 'package:ultimaMillaFlutter/screen/modals/DialogHelper.dart';
 import 'package:ultimaMillaFlutter/screen/pendientesScreen.dart';
-import 'package:ultimaMillaFlutter/util/const/base_url.dart';
+import 'package:ultimaMillaFlutter/util/const/parametroConexion.dart';
 import 'package:ultimaMillaFlutter/util/const/constants.dart';
 import '../services/shared_functions.dart';
 import 'package:image_picker/image_picker.dart';
@@ -103,6 +103,8 @@ class _EntregaTotalScreenState extends State<EntregaTotalScreen> {
     String selectedDate = widget.date;
     List<dynamic> entregas = await obtenerRutas();
     entregas = entregas.where((obj) {
+      print("ELEM");
+      print(obj['idConceptoEstadoPedido']);
       return obj['idPuntoInteres'] == pedido['idPuntoInteres'] &&
           (obj['idConceptoEstadoPedido'] == PENDIENTE_ENTREGA ||
               obj['idConceptoEstadoPedido'] == EN_RUTA ||
@@ -111,7 +113,7 @@ class _EntregaTotalScreenState extends State<EntregaTotalScreen> {
     }).toList();
 
     var entregaUnica = entregas.firstWhere((obj) {
-      return obj['codigoPedido'] == widget.pedido['codigoPedido'];
+      return obj['codigoPedido'] == pedido['codigoPedido'];
     }, orElse: () => null);
 
     setState(() {
@@ -267,10 +269,10 @@ class _EntregaTotalScreenState extends State<EntregaTotalScreen> {
               'nombreReceptor': '',
               'esArchivo': omitirFotografia ? 0 : 1,
               'tipoArchivo': '.jpg',
-              'notaObservacion': pedido['comentario'],
+              'notaObservacion': widget.comentario,
               'direccionNombreArchivo': '',
               'base64': omitirFotografia ? '' : base64,
-              'tiempoDescarga': pedido['tiempoDescarga'],
+              'tiempoDescarga': widget.tiempoDescarga,
               'montoPagadoAConductor': '',
               'otroEstadoPago': '',
             },
@@ -286,9 +288,9 @@ class _EntregaTotalScreenState extends State<EntregaTotalScreen> {
               'nombreReceptor': omitirQuienrecibe ? '' : nombreConcat,
               'esArchivo': 0,
               'tipoArchivo': '',
-              'notaObservacion': pedido['comentario'],
+              'notaObservacion': widget.comentario,
               'direccionNombreArchivo': '',
-              'tiempoDescarga': pedido['tiempoDescarga'],
+              'tiempoDescarga': widget.tiempoDescarga,
               'montoPagadoAConductor': '',
               'otroEstadoPago': '',
             },
@@ -303,10 +305,10 @@ class _EntregaTotalScreenState extends State<EntregaTotalScreen> {
               'nombreReceptor': '',
               'esArchivo': omitirFirma ? 0 : 1,
               'tipoArchivo': '.png',
-              'notaObservacion': pedido['comentario'],
+              'notaObservacion': widget.comentario,
               'direccionNombreArchivo': '',
               'base64': omitirFirma ? '' : firma,
-              'tiempoDescarga': pedido['tiempoDescarga'],
+              'tiempoDescarga': widget.tiempoDescarga,
               'montoPagadoAConductor': '',
               'otroEstadoPago': '',
             },
@@ -322,9 +324,9 @@ class _EntregaTotalScreenState extends State<EntregaTotalScreen> {
               'nombreReceptor': '',
               'esArchivo': 0,
               'tipoArchivo': '',
-              'notaObservacion': pedido['comentario'],
+              'notaObservacion': widget.comentario,
               'direccionNombreArchivo': '',
-              'tiempoDescarga': pedido['tiempoDescarga'],
+              'tiempoDescarga': widget.tiempoDescarga,
               'montoPagadoAConductor':
                   omitirEstadoPago ? '' : montoPagadoAConductor,
               'otroEstadoPago': omitirEstadoPago ? '' : otroPagoConcat,
@@ -375,7 +377,7 @@ class _EntregaTotalScreenState extends State<EntregaTotalScreen> {
             'objTE': data_opTE,
             'info': pedido,
           });
-          //enviarCorreo();
+          enviarCorreo(pedido);
         } catch (error) {
           print(error);
           results.add({
@@ -407,7 +409,8 @@ class _EntregaTotalScreenState extends State<EntregaTotalScreen> {
               content: Text('Se ha marcado el pedido como ENTREGA TOTAL')));
         }
 
-        if (pedido['latPuntoInteres'] != 0 || pedido['lngPuntoInteres'] != 0) {
+        if (pedido['latPuntoInteres'].toString() != "0" ||
+            pedido['lngPuntoInteres'].toString() != "0") {
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -542,8 +545,9 @@ class _EntregaTotalScreenState extends State<EntregaTotalScreen> {
   }
 
   void mostrarAlertaFormularios() {
-    print(
-        "Debe rellenar los formularios o seleccionar la opción 'OMITIR' para cada uno");
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+            "Debe rellenar los formularios o seleccionar la opción OMITIR para cada uno")));
   }
 
   double _getProgressWidth(int view) {
@@ -639,13 +643,21 @@ class _EntregaTotalScreenState extends State<EntregaTotalScreen> {
                       SizedBox(height: 20),
                       entregas.length > 1
                           ? GestureDetector(
-                              onTap: (base64.isNotEmpty || omitirFotografia) &&
-                                      (firma.isNotEmpty || omitirFirma) &&
-                                      (idEstadoPago != -1 ||
-                                          omitirEstadoPago) &&
-                                      (idQuienRecibe != -1 || omitirQuienrecibe)
-                                  ? () => finalizar(false)
-                                  : mostrarAlertaFormularios,
+                              onTap: () => {
+                                if ((base64.isNotEmpty ||
+                                        omitirFotografia == true) &&
+                                    (firma.isNotEmpty || omitirFirma == true) &&
+                                    (idEstadoPago != -1 ||
+                                        omitirEstadoPago == true) &&
+                                    (idQuienRecibe != -1 ||
+                                        omitirQuienrecibe == true))
+                                  {
+                                    Navigator.of(context).pop(),
+                                    finalizar(false)
+                                  }
+                                else
+                                  mostrarAlertaFormularios()
+                              },
                               child: Container(
                                 padding: EdgeInsets.symmetric(
                                   vertical: 5,
@@ -668,16 +680,17 @@ class _EntregaTotalScreenState extends State<EntregaTotalScreen> {
                             )
                           : Container(),
                       GestureDetector(
-                        onTap: (base64.isNotEmpty || omitirFotografia) &&
-                                (firma.isNotEmpty || omitirFirma) &&
-                                (idEstadoPago != -1 || omitirEstadoPago) &&
-                                (idQuienRecibe != -1 || omitirQuienrecibe)
-                            ? () =>
-                                {Navigator.of(context).pop(), finalizar(true)}
-                            : () => {
-                                  Navigator.of(context).pop(),
-                                  mostrarAlertaFormularios
-                                },
+                        onTap: () => {
+                          if ((base64.isNotEmpty || omitirFotografia == true) &&
+                              (firma.isNotEmpty || omitirFirma == true) &&
+                              (idEstadoPago != -1 ||
+                                  omitirEstadoPago == true) &&
+                              (idQuienRecibe != -1 ||
+                                  omitirQuienrecibe == true))
+                            {Navigator.of(context).pop(), finalizar(true)}
+                          else
+                            mostrarAlertaFormularios()
+                        },
                         child: Container(
                           padding:
                               EdgeInsets.symmetric(vertical: 5, horizontal: 5),
@@ -903,6 +916,9 @@ class _EntregaTotalScreenState extends State<EntregaTotalScreen> {
                               color: Colors.white,
                             ),
                           )),
+                      SizedBox(
+                        height: 14,
+                      ),
                       Container(
                           decoration:
                               BoxDecoration(border: Border.all(width: 2)),

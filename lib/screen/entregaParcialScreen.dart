@@ -12,7 +12,7 @@ import 'package:ultimaMillaFlutter/screen/QRScreen.dart';
 import 'package:ultimaMillaFlutter/screen/actualizarUbicacionScreen.dart';
 import 'package:ultimaMillaFlutter/screen/modals/DialogHelper.dart';
 import 'package:ultimaMillaFlutter/screen/pendientesScreen.dart';
-import 'package:ultimaMillaFlutter/util/const/base_url.dart';
+import 'package:ultimaMillaFlutter/util/const/parametroConexion.dart';
 import 'package:ultimaMillaFlutter/util/const/constants.dart';
 import '../services/shared_functions.dart';
 import 'package:image_picker/image_picker.dart';
@@ -58,12 +58,13 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
   int idEstadoPago = -1;
   bool showModal = false;
   bool showProgressUploading = false;
-  List<dynamic> entregas = [];
+
   bool omitirFirma = false;
   bool omitirFotografia = false;
   bool omitirQuienrecibe = false;
   bool omitirEstadoPago = false;
   List<dynamic> entregaUnica = [];
+  List<dynamic> entregas = [];
   Map usuario = {};
   dynamic pedido;
 
@@ -266,10 +267,10 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
               'nombreReceptor': '',
               'esArchivo': omitirFotografia ? 0 : 1,
               'tipoArchivo': '.jpg',
-              'notaObservacion': pedido['comentario'],
+              'notaObservacion': widget.comentario,
               'direccionNombreArchivo': '',
               'base64': omitirFotografia ? '' : base64,
-              'tiempoDescarga': pedido['tiempoDescarga'],
+              'tiempoDescarga': widget.tiempoDescarga,
               'montoPagadoAConductor': '',
               'otroEstadoPago': '',
             },
@@ -285,9 +286,9 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
               'nombreReceptor': omitirQuienrecibe ? '' : nombreConcat,
               'esArchivo': 0,
               'tipoArchivo': '',
-              'notaObservacion': pedido['comentario'],
+              'notaObservacion': widget.comentario,
               'direccionNombreArchivo': '',
-              'tiempoDescarga': pedido['tiempoDescarga'],
+              'tiempoDescarga': widget.tiempoDescarga,
               'montoPagadoAConductor': '',
               'otroEstadoPago': '',
             },
@@ -302,10 +303,10 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
               'nombreReceptor': '',
               'esArchivo': omitirFirma ? 0 : 1,
               'tipoArchivo': '.png',
-              'notaObservacion': pedido['comentario'],
+              'notaObservacion': widget.comentario,
               'direccionNombreArchivo': '',
               'base64': omitirFirma ? '' : firma,
-              'tiempoDescarga': pedido['tiempoDescarga'],
+              'tiempoDescarga': widget.tiempoDescarga,
               'montoPagadoAConductor': '',
               'otroEstadoPago': '',
             },
@@ -321,9 +322,9 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
               'nombreReceptor': '',
               'esArchivo': 0,
               'tipoArchivo': '',
-              'notaObservacion': pedido['comentario'],
+              'notaObservacion': widget.comentario,
               'direccionNombreArchivo': '',
-              'tiempoDescarga': pedido['tiempoDescarga'],
+              'tiempoDescarga': widget.tiempoDescarga,
               'montoPagadoAConductor':
                   omitirEstadoPago ? '' : montoPagadoAConductor,
               'otroEstadoPago': omitirEstadoPago ? '' : otroPagoConcat,
@@ -374,7 +375,7 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
             'objTE': data_opTE,
             'info': pedido,
           });
-          //enviarCorreo();
+          enviarCorreo(pedido);
         } catch (error) {
           print(error);
           results.add({
@@ -406,7 +407,8 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
               content: Text('Se ha marcado el pedido como ENTREGA PARCIAL')));
         }
 
-        if (pedido['latPuntoInteres'] != 0 || pedido['lngPuntoInteres'] != 0) {
+        if (pedido['latPuntoInteres'].toString() != "0" ||
+            pedido['lngPuntoInteres'].toString() != "0") {
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -541,8 +543,9 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
   }
 
   void mostrarAlertaFormularios() {
-    print(
-        "Debe rellenar los formularios o seleccionar la opción 'OMITIR' para cada uno");
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+            "Debe rellenar los formularios o seleccionar la opción OMITIR para cada uno")));
   }
 
   double _getProgressWidth(int view) {
@@ -561,8 +564,7 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
 
   Widget _buildProgressBar() {
     return LinearProgressIndicator(
-      value: _getProgressWidth(
-          currentView), // Cambiar el valor de acuerdo al progreso actual
+      value: _getProgressWidth(currentView),
       backgroundColor: Colors.grey[300],
       valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
     );
@@ -636,13 +638,21 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
                       SizedBox(height: 20),
                       entregas.length > 1
                           ? GestureDetector(
-                              onTap: (base64.isNotEmpty || omitirFotografia) &&
-                                      (firma.isNotEmpty || omitirFirma) &&
-                                      (idEstadoPago != -1 ||
-                                          omitirEstadoPago) &&
-                                      (idQuienRecibe != -1 || omitirQuienrecibe)
-                                  ? () => finalizar(false)
-                                  : mostrarAlertaFormularios,
+                              onTap: () => {
+                                if ((base64.isNotEmpty ||
+                                        omitirFotografia == true) &&
+                                    (firma.isNotEmpty || omitirFirma == true) &&
+                                    (idEstadoPago != -1 ||
+                                        omitirEstadoPago == true) &&
+                                    (idQuienRecibe != -1 ||
+                                        omitirQuienrecibe == true))
+                                  {
+                                    Navigator.of(context).pop(),
+                                    finalizar(false)
+                                  }
+                                else
+                                  mostrarAlertaFormularios()
+                              },
                               child: Container(
                                 padding: EdgeInsets.symmetric(
                                   vertical: 5,
@@ -665,16 +675,17 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
                             )
                           : Container(),
                       GestureDetector(
-                        onTap: (base64.isNotEmpty || omitirFotografia) &&
-                                (firma.isNotEmpty || omitirFirma) &&
-                                (idEstadoPago != -1 || omitirEstadoPago) &&
-                                (idQuienRecibe != -1 || omitirQuienrecibe)
-                            ? () =>
-                                {Navigator.of(context).pop(), finalizar(true)}
-                            : () => {
-                                  Navigator.of(context).pop(),
-                                  mostrarAlertaFormularios
-                                },
+                        onTap: () => {
+                          if ((base64.isNotEmpty || omitirFotografia == true) &&
+                              (firma.isNotEmpty || omitirFirma == true) &&
+                              (idEstadoPago != -1 ||
+                                  omitirEstadoPago == true) &&
+                              (idQuienRecibe != -1 ||
+                                  omitirQuienrecibe == true))
+                            {Navigator.of(context).pop(), finalizar(true)}
+                          else
+                            mostrarAlertaFormularios()
+                        },
                         child: Container(
                           padding:
                               EdgeInsets.symmetric(vertical: 5, horizontal: 5),
@@ -900,6 +911,9 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
                               color: Colors.white,
                             ),
                           )),
+                      SizedBox(
+                        height: 14,
+                      ),
                       Container(
                           decoration:
                               BoxDecoration(border: Border.all(width: 2)),

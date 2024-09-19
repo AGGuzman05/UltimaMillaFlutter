@@ -1,13 +1,22 @@
 // ignore_for_file: constant_identifier_names
 
 class Constants {
-  static const String appVersion = "2.0.2";
+  static const String apkVersion = "1.0.11";
+  static const String iosVersion = "";
+  static const String webVersion = "";
   static const int BATERIA = 95;
   static const int ULTIMA_MILLA = 97;
 }
 
+class Screens {
+  static const String PENDIENTES = "PENDIENTES";
+  static const String CLIENTES = "CLIENTES";
+  static const String MAPA = "MAPA";
+  static const String CONFIGURACION = "CONFIGURACION";
+}
+
 class SubEntregado {
-  static const int ENTREGA_EXITOSA = 1;
+  static const int ENTREGA_EXITOSA = 49;
 }
 
 class SubNoEntregado {
@@ -49,8 +58,12 @@ const int MADISA = 7882;
 const int MADISALP = 6345;
 const int MADISACBBA = 6346;
 const int MADISASC = 6347;
+const int HPMEDICAL = 7820;
 const int VETERQUIMICA = 3207;
 const int VINOSKOHLBERG = 8148;
+const int CERAMICANORTE = 7803;
+const int COFAR = 6290;
+const int PLASTICO = 6056;
 
 const int FOTO_VIEW = 1;
 const int QUIEN_RECIBE_VIEW = 2;

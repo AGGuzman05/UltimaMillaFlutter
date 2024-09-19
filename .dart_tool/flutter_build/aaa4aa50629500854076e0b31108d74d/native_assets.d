@@ -1,1 +1,0 @@
- C:\\Users\\alvar\\OneDrive\\Documents\\Boltrack\\Ultima\ Milla\ Flutter\\.dart_tool\\flutter_build\\aaa4aa50629500854076e0b31108d74d\\native_assets.yaml: 

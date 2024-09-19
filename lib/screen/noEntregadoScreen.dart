@@ -1,4 +1,4 @@
-// ignore_for_file: prefer_const_constructors, library_private_types_in_public_api
+// ignore_for_file: prefer_const_constructors, library_private_types_in_public_api, use_build_context_synchronously
 
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
@@ -6,16 +6,21 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:ultimaMillaFlutter/screen/actualizarUbicacionScreen.dart';
+import 'package:ultimaMillaFlutter/screen/pendientesScreen.dart';
 import 'package:ultimaMillaFlutter/services/shared_functions.dart';
+import 'package:ultimaMillaFlutter/util/const/parametroConexion.dart';
 import 'package:ultimaMillaFlutter/util/const/constants.dart';
 
 class NoEntregadoScreen extends StatefulWidget {
   const NoEntregadoScreen(
       {super.key,
       required this.pedido,
+      required this.date,
       required this.comentario,
       required this.idSubestado});
   final dynamic pedido;
+  final String date;
   final String comentario;
   final int idSubestado;
 
@@ -28,10 +33,11 @@ class _NoEntregadoScreenState extends State<NoEntregadoScreen> {
   late Future<void> _initializeControllerFuture;
   bool showCamera = false;
   bool pictureTaken = false;
-  String base64Image = "";
-  bool showModal = false;
+  String base64 = "";
   bool showProgressUploading = false;
   String flashMode = 'off';
+  List<dynamic> entregaUnica = [];
+  List<dynamic> entregas = [];
   Map usuario = {};
 
   @override
@@ -65,7 +71,7 @@ class _NoEntregadoScreenState extends State<NoEntregadoScreen> {
     try {
       await _initializeControllerFuture;
       final image = await controller!.takePicture();
-      base64Image = base64Encode(await image.readAsBytes());
+      base64 = base64Encode(await image.readAsBytes());
       setState(() {
         pictureTaken = true;
         showCamera = false;
@@ -75,109 +81,242 @@ class _NoEntregadoScreenState extends State<NoEntregadoScreen> {
     }
   }
 
-  Future<void> _finalizar(BuildContext context) async {
-    setState(() {
-      showModal = false;
-      showProgressUploading = true;
-    });
-    var params = jsonDecode(widget.pedido);
-    final dataOp = {
-      'token': usuario['token'],
-      'idNuevoEstado': NO_ENTREGADO_RECHAZADO,
-      'idDetallePedido': params['idDetallePedido'],
-      'idActivo': params['idUnidad'],
-      'detalleFormulario': [
+  void mostrarAlertaFormularios() {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text("La foto es obligatoria")));
+  }
+
+  showModalFinalizar() {
+    var nombrePuntoInteres = widget.pedido["nombrePuntoInteres"];
+    var fechaSelected = widget.date;
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          contentPadding: EdgeInsets.all(0),
+          content: Container(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(10),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.close, color: Colors.black),
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ],
+                      ),
+                      /*
+                      entregas.length > 1
+                          ? Container(
+                              padding: EdgeInsets.all(5),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Text(
+                                'Hay ${entregas.length} entregas correspondientes a "$nombrePuntoInteres" para la fecha $fechaSelected',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                ),
+                              ),
+                            )
+                          : Container(),
+                      SizedBox(height: 10),
+                      */
+                      Text(
+                        'Marcar como NO ENTREGADO?',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                      /*
+                      entregas.length > 1
+                          ? GestureDetector(
+                              onTap: () => {
+                                if (base64.isNotEmpty)
+                                  {
+                                    Navigator.of(context).pop(),
+                                    _finalizar(context)
+                                  }
+                                else
+                                  mostrarAlertaFormularios()
+                              },
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                alignment: Alignment.center,
+                                margin: EdgeInsets.symmetric(vertical: 15),
+                                child: Text(
+                                  'Todos los pedidos de este cliente',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w400,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Container(),
+                          */
+                      GestureDetector(
+                        onTap: () => {
+                          if (base64.isNotEmpty)
+                            {Navigator.of(context).pop(), _finalizar()}
+                          else
+                            mostrarAlertaFormularios()
+                        },
+                        child: Container(
+                          padding:
+                              EdgeInsets.symmetric(vertical: 5, horizontal: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.blue,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          alignment: Alignment.center,
+                          margin: EdgeInsets.symmetric(vertical: 15),
+                          child: Text(
+                            'Solo este pedido',
+                            //'Solo el pedido ${entregaUnica[0]['codigoPedido']}',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w400,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _finalizar() async {
+    try {
+      setState(() {
+        showProgressUploading = true;
+      });
+      var pedido = widget.pedido;
+
+      final dataOp = {
+        'token': usuario['token'],
+        'idNuevoEstado': NO_ENTREGADO_RECHAZADO,
+        'idDetallePedido': pedido['idDetallePedido'],
+        'idActivo': usuario['idUnidad'],
+        'detalleFormulario': [
+          {
+            'idPedido': pedido['idPedido'],
+            'idDetallePedido': pedido['idDetallePedido'],
+            'idEstadoFinal': NO_ENTREGADO_RECHAZADO,
+            'idSubEstadoFinal': widget.idSubestado,
+            'idPreguntaConcepto': PREGUNTA_FOTOGRAFIA,
+            'idRespuestaConcepto': FOTOGRAFIA,
+            'descripcionOtro': '',
+            'esArchivo': 1,
+            'tipoArchivo': '.jpg',
+            'notaObservacion': widget.comentario,
+            'direccionNombreArchivo': '',
+            'base64': base64,
+          },
+        ],
+      };
+
+      final response = await doFetchJSON(URL_UM,
+          {'data_op': dataOp, 'op': 'UPDATE-ACTIVIDADGENERALULTIMAMILLA'});
+
+      final response2 = await doFetchJSON(
+        URL_UM,
         {
-          'idPedido': params['idPedido'],
-          'idDetallePedido': params['idDetallePedido'],
-          'idEstadoFinal': NO_ENTREGADO_RECHAZADO,
-          'idSubEstadoFinal': widget.idSubestado,
-          'idPreguntaConcepto': 'PREGUNTA_FOTOGRAFIA',
-          'idRespuestaConcepto': 'FOTOGRAFIA',
-          'descripcionOtro': '',
-          'esArchivo': 1,
-          'tipoArchivo': '.jpg',
-          'notaObservacion': widget.comentario,
-          'direccionNombreArchivo': '',
-          'base64': base64Image,
+          'data_op': {
+            'token': usuario['token'],
+            'idDetallePedido': pedido['idDetallePedido'],
+            'idPedido': pedido['idPedido'],
+            'idEstadoActual': NO_ENTREGADO_RECHAZADO,
+            'idEstadoAnterior': pedido['idConceptoEstadoPedido'],
+          },
+          'op': 'CREATE-WFDETALLEPEDIDOULTIMAMILLA',
         },
-      ],
-    };
+      );
 
-    final response = await http.post(
-      Uri.parse('https://gestiondeflota.boltrack.net/apiUltimaMilla/datos'),
-      body: jsonEncode(
-          {'data_op': dataOp, 'op': 'UPDATE-ACTIVIDADGENERALULTIMAMILLA'}),
-      headers: {"Content-Type": "application/json"},
-    );
+      if (response['error'] == false && response2['error'] == false) {
+        _enviarCorreo(pedido);
 
-    final response2 = await http.post(
-      Uri.parse('https://gestiondeflota.boltrack.net/apiUltimaMilla/datos'),
-      body: jsonEncode({
-        'data_op': {
-          'token': usuario['token'],
-          'idDetallePedido': params['idDetallePedido'],
-          'idPedido': params['idPedido'],
-          'idEstadoActual': NO_ENTREGADO_RECHAZADO,
-          'idEstadoAnterior': params['idConceptoEstadoPedido'],
-        },
-        'op': 'CREATE-WFDETALLEPEDIDOULTIMAMILLA',
-      }),
-      headers: {"Content-Type": "application/json"},
-    );
-
-    if (response.statusCode == 200 && response2.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final data2 = jsonDecode(response2.body);
-
-      if (!data['error'] && !data2['error']) {
-        _enviarCorreo(params);
-        setState(() {
-          showProgressUploading = false;
-        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Se ha marcado el pedido como NO ENTREGADO')),
         );
-        if (params['latPuntoInteres'] != 0 || params['lngPuntoInteres'] != 0) {
-          Navigator.pushNamed(context, '/finalizados');
+        if (pedido['latPuntoInteres'].toString() != "0" ||
+            pedido['lngPuntoInteres'].toString() != "0") {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => PendientesScreen()),
+          );
         } else {
-          Navigator.pushNamed(context, '/actualizarLatLng',
-              arguments: {...params, 'estado': 'NOENTREGADO'});
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ActualizarUbicacionScreen(
+                pedido: jsonEncode(widget.pedido),
+                estado: NO_ENTREGADO_RECHAZADO,
+              ),
+            ),
+          );
         }
       } else {
-        setState(() {
-          showProgressUploading = false;
-        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Ocurrió un error')),
         );
       }
-    } else {
       setState(() {
         showProgressUploading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ocurrió un error')),
-      );
+    } catch (error, stackTrace) {
+      print(error);
+      print(stackTrace);
     }
   }
 
-  Future<void> _enviarCorreo(Map params) async {
-    final response = await http.post(
-      Uri.parse('https://gestiondeflota.boltrack.net/apiUltimaMilla/datos'),
-      body: jsonEncode({
-        'data_op': {
-          'email': params['meta']['correosNotificacion'],
-          'codigoPedido': params['codigoPedido'],
-          'estadoPedido': 'NO ENTREGADO',
-          'nombreCliente': params['nombrePuntoInteres'],
-        },
-        'op': 'ENVIAR-EMAILSTATUS',
-      }),
-      headers: {"Content-Type": "application/json"},
-    );
-    if (response.statusCode != 200) {
-      print('Error enviando correo');
+  Future<void> _enviarCorreo(dynamic pedido) async {
+    try {
+      var correos = jsonDecode(pedido['meta'])?['correosNotificacion'];
+      if (correos != null) {
+        final response = await doFetchJSON(
+          URL_UM,
+          {
+            'data_op': {
+              'email': jsonDecode(pedido['meta'])?['correosNotificacion'],
+              'codigoPedido': pedido['codigoPedido'],
+              'estadoPedido': 'NO ENTREGADO',
+              'nombreCliente': pedido['nombrePuntoInteres'],
+            },
+            'op': 'ENVIAR-EMAILSTATUS',
+          },
+        );
+        if (response['error'] == true) {
+          print('Error enviando correo');
+        }
+      }
+    } catch (e) {
+      print(e);
     }
   }
 
@@ -193,113 +332,89 @@ class _NoEntregadoScreenState extends State<NoEntregadoScreen> {
           ? SizedBox(
               child: Center(
                 child: Text(
-                    "No se puede marcar como NO ENTREGADO desde un ordenador de escritorio"),
+                  "No se puede marcar como NO ENTREGADO desde un ordenador de escritorio",
+                  textAlign: TextAlign.center,
+                ),
               ),
             )
           : showProgressUploading
               ? Center(child: CircularProgressIndicator())
-              : Column(
-                  children: [
-                    if (showCamera)
-                      FutureBuilder<void>(
-                        future: _initializeControllerFuture,
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.done) {
-                            return CameraPreview(controller!);
-                          } else {
-                            return Center(child: CircularProgressIndicator());
-                          }
-                        },
+              : Padding(
+                  padding: const EdgeInsets.all(18.0),
+                  child: Column(
+                    children: [
+                      Text(
+                        "FOTO RAZON PORQUE NO SE REALIZO EL PEDIDO",
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                    if (!showCamera && pictureTaken)
-                      Center(
-                        child: Image.memory(
-                          base64Decode(base64Image),
-                          height: 350,
+                      if (showCamera)
+                        FutureBuilder<void>(
+                          future: _initializeControllerFuture,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.done) {
+                              return CameraPreview(controller!);
+                            } else {
+                              return Center(child: CircularProgressIndicator());
+                            }
+                          },
                         ),
-                      ),
-                    if (showCamera)
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _takePicture,
-                              child: Text('Tomar Foto'),
-                            ),
+                      if (!showCamera && pictureTaken)
+                        Center(
+                          child: Image.memory(
+                            base64Decode(base64),
+                            //rheight: 350,
                           ),
-                          IconButton(
-                            icon: Icon(
-                              flashMode == 'on'
-                                  ? Icons.flash_on
-                                  : Icons.flash_off,
+                        ),
+                      if (showCamera)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: _takePicture,
+                                child: Text('TOMAR FOTO'),
+                              ),
                             ),
-                            onPressed: () {
-                              setState(() {
-                                flashMode = flashMode == 'on' ? 'off' : 'on';
-                              });
-                              controller?.setFlashMode(
+                            IconButton(
+                              icon: Icon(
                                 flashMode == 'on'
-                                    ? FlashMode.torch
-                                    : FlashMode.off,
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    if (pictureTaken)
-                      ElevatedButton(
-                        onPressed: () {
-                          setState(() {
-                            showCamera = true;
-                            pictureTaken = false;
-                          });
-                        },
-                        child: Text('Volver a Tomar Foto'),
-                      ),
-                    if (!showCamera && pictureTaken)
-                      ElevatedButton(
-                        onPressed: () {
-                          setState(() {
-                            showModal = true;
-                          });
-                        },
-                        child: Text('Finalizar'),
-                      ),
-                  ],
+                                    ? Icons.flash_on
+                                    : Icons.flash_off,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  flashMode = flashMode == 'on' ? 'off' : 'on';
+                                });
+                                controller?.setFlashMode(
+                                  flashMode == 'on'
+                                      ? FlashMode.torch
+                                      : FlashMode.off,
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      if (pictureTaken)
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              showCamera = true;
+                              pictureTaken = false;
+                            });
+                          },
+                          child: Text('VOLVER A TOMAR FOTO'),
+                        ),
+                      if (!showCamera && pictureTaken)
+                        ElevatedButton(
+                          onPressed: () {
+                            showModalFinalizar();
+                          },
+                          child: Text('FINALIZAR'),
+                        ),
+                    ],
+                  ),
                 ),
-      bottomSheet: showModal ? _buildModal(context) : SizedBox.shrink(),
-    );
-  }
-
-  Widget _buildModal(BuildContext context) {
-    return AlertDialog(
-      title: Text('Desea marcar el pedido como NO_ENTREGADO?'),
-      actions: [
-        TextButton(
-          onPressed: () {
-            if (base64Image.isNotEmpty) {
-              _finalizar(context);
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('La foto es obligatoria')),
-              );
-              setState(() {
-                showModal = false;
-              });
-            }
-          },
-          child: Text('Aceptar'),
-        ),
-        TextButton(
-          onPressed: () {
-            setState(() {
-              showModal = false;
-            });
-          },
-          child: Text('Cancelar'),
-        ),
-      ],
     );
   }
 }

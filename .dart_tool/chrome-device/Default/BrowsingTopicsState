@@ -1,56 +1,56 @@
 {
    "epochs": [ {
-      "calculation_time": "13363227335219829",
+      "calculation_time": "13364798873202460",
       "config_version": 0,
       "model_version": "0",
       "padded_top_topics_start_index": 0,
       "taxonomy_version": 0,
       "top_topics_and_observing_domains": [  ]
    }, {
-      "calculation_time": "13363832135230045",
+      "calculation_time": "13365714561913185",
       "config_version": 2,
       "model_version": "5",
       "padded_top_topics_start_index": 0,
       "taxonomy_version": 2,
       "top_topics_and_observing_domains": [ {
          "hashed_domains": [  ],
-         "topic": 591
+         "topic": 215
       }, {
          "hashed_domains": [  ],
-         "topic": 260
+         "topic": 65
       }, {
          "hashed_domains": [  ],
-         "topic": 158
+         "topic": 264
       }, {
          "hashed_domains": [  ],
-         "topic": 599
+         "topic": 493
       }, {
          "hashed_domains": [  ],
-         "topic": 613
+         "topic": 429
       } ]
    }, {
-      "calculation_time": "13364495985146959",
+      "calculation_time": "13366319368453587",
       "config_version": 2,
       "model_version": "5",
       "padded_top_topics_start_index": 0,
       "taxonomy_version": 2,
       "top_topics_and_observing_domains": [ {
          "hashed_domains": [  ],
-         "topic": 435
+         "topic": 132
       }, {
          "hashed_domains": [  ],
-         "topic": 617
+         "topic": 505
       }, {
          "hashed_domains": [  ],
-         "topic": 153
+         "topic": 357
       }, {
          "hashed_domains": [  ],
-         "topic": 385
+         "topic": 383
       }, {
          "hashed_domains": [  ],
-         "topic": 491
+         "topic": 401
       } ]
    } ],
-   "hex_encoded_hmac_key": "6E500B35B42295B14F3BA1B398A3886CE4713C5C90738D09893120FBDA7CB076",
-   "next_scheduled_calculation_time": "13365100793533506"
+   "hex_encoded_hmac_key": "AEADF24790E6ABDD2BBA36DCF37B8E5160160076F4BF738972EC61D037197371",
+   "next_scheduled_calculation_time": "13366924168472768"
 }
