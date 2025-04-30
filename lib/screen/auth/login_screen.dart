@@ -2,8 +2,10 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:ultimaMillaFlutter/screen/pendientesScreen.dart';
-import 'package:ultimaMillaFlutter/util/const/base_url.dart';
+import 'package:ultimaMillaFlutter/util/const/parametroConexion.dart';
 import 'package:ultimaMillaFlutter/util/const/constants.dart';
 import 'package:ultimaMillaFlutter/util/const/shared_styles.dart';
 import 'package:flutter/material.dart';
@@ -268,13 +270,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
-                      Container(
-                        margin: EdgeInsets.all(7),
-                        child: Text(
-                          "Version ${Constants.appVersion}",
-                          style: TextStyle(fontSize: 14, color: Colors.white),
-                        ),
-                      )
+                      if (!kIsWeb)
+                        if (Platform.isAndroid)
+                          Container(
+                            margin: EdgeInsets.all(7),
+                            child: Text(
+                              "Version ${Constants.apkVersion}",
+                              style:
+                                  TextStyle(fontSize: 14, color: Colors.white),
+                            ),
+                          )
                     ],
                   ),
                 ),

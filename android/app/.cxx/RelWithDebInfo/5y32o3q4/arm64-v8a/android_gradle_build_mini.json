@@ -1,0 +1,20 @@
+{
+  "buildFiles": [
+    "/Users/boltrack/Downloads/Despachos Flutter/flutter/packages/flutter_tools/gradle/src/main/groovy/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/Users/boltrack/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/Users/boltrack/Documents/BOLTRACK/Desarrollo/Ultima Milla Flutter/UM Flutter/android/app/.cxx/RelWithDebInfo/5y32o3q4/arm64-v8a",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/Users/boltrack/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/Users/boltrack/Documents/BOLTRACK/Desarrollo/Ultima Milla Flutter/UM Flutter/android/app/.cxx/RelWithDebInfo/5y32o3q4/arm64-v8a",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {}
+}

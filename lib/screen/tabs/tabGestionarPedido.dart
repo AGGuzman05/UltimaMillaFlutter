@@ -8,8 +8,8 @@ import 'package:ultimaMillaFlutter/screen/entregaParcialScreen.dart';
 import 'package:ultimaMillaFlutter/screen/entregaTotalScreen.dart';
 import 'package:ultimaMillaFlutter/screen/noEntregadoScreen.dart';
 import 'package:ultimaMillaFlutter/services/shared_functions.dart';
-import 'package:ultimaMillaFlutter/util/const/base_url.dart';
 import 'package:ultimaMillaFlutter/util/const/constants.dart';
+import 'package:ultimaMillaFlutter/util/const/parametroConexion.dart';
 
 class TabGestionar extends StatefulWidget {
   final dynamic pedido;
@@ -37,7 +37,7 @@ class _TabGestionarState extends State<TabGestionar> {
   String comentarioText = "";
   List estadoPrincipal = [
     {'value': EN_RUTA, 'label': 'EN RUTA'},
-    {'value': ENTREGADO, 'label': 'ENTREGA TOTAL'},
+    {'value': ENTREGA_TOTAL, 'label': 'ENTREGA TOTAL'},
     {'value': ENTREGA_PARCIAL, 'label': 'ENTREGA PARCIAL'},
     {'value': NO_ENTREGADO_RECHAZADO, 'label': 'NO ENTREGADO'},
     {'value': EN_PAUSA, 'label': 'EN PAUSA'}
@@ -325,7 +325,7 @@ class _TabGestionarState extends State<TabGestionar> {
       colorEstadoRuta = Colors.lightBlueAccent;
       colorSubEstadoRuta = Colors.blue;
       labelFormulario = "Formulario no disponible";
-    } else if (idEstadoRuta == ENTREGADO) {
+    } else if (idEstadoRuta == ENTREGA_TOTAL) {
       colorEstadoRuta = Colors.lightGreen;
       colorSubEstadoRuta = Colors.green;
       labelFormulario = "Formulario disponible";
@@ -502,7 +502,7 @@ class _TabGestionarState extends State<TabGestionar> {
     };
 
     try {
-      var evento = await doFetchJSON(URL_UM, {
+      var evento = await doFetchJSON(URL_GESTION, {
         'data_op': dataOp,
         'op': 'READ-OBTENEREVENTOACTUALVEHICULO',
       });
@@ -520,7 +520,7 @@ class _TabGestionarState extends State<TabGestionar> {
 
   void navigateToCompletarFormulario() async {
     var pedido = jsonDecode(widget.pedido);
-    if (idEstadoRuta == ENTREGADO) {
+    if (idEstadoRuta == ENTREGA_TOTAL) {
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -529,6 +529,7 @@ class _TabGestionarState extends State<TabGestionar> {
             comentario: comentarioText,
             idSubestado: idSubEstadoRuta,
             tiempoDescarga: tiempoDescarga,
+            date: widget.date,
           ),
         ),
       );
@@ -564,6 +565,7 @@ class _TabGestionarState extends State<TabGestionar> {
                 pedido: pedido,
                 comentario: comentarioText,
                 idSubestado: idSubEstadoRuta,
+                date: widget.date,
               ),
             ));
       } else {

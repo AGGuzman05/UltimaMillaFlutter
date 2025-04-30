@@ -1,7 +1,12 @@
 // ignore_for_file: prefer_const_constructors, sort_child_properties_last, non_constant_identifier_names, avoid_print, library_private_types_in_public_api, use_build_context_synchronously
 
+import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
@@ -10,9 +15,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ultimaMillaFlutter/screen/detallePedidoScreen.dart';
 import 'package:ultimaMillaFlutter/screen/modals/DialogHelper.dart';
 import 'package:ultimaMillaFlutter/services/shared_functions.dart';
-import 'package:ultimaMillaFlutter/util/const/base_url.dart';
 import 'package:ultimaMillaFlutter/util/const/colors.dart';
 import 'package:ultimaMillaFlutter/util/const/constants.dart';
+import 'package:ultimaMillaFlutter/util/const/parametroConexion.dart';
 
 class TabPendientes extends StatefulWidget {
   final dynamic pedido;
@@ -26,7 +31,7 @@ class TabPendientes extends StatefulWidget {
 
 class _TabPendientesState extends State<TabPendientes> {
   late GoogleMapController _controller;
-  late Position _currentPosition;
+  late Position? _currentPosition;
   DateTime selectedDate = DateTime.now();
   //String selectedDateString = DateFormat('yyyy-MM-dd').format(DateTime.now());
   bool showMapView = false;
@@ -46,24 +51,104 @@ class _TabPendientesState extends State<TabPendientes> {
   bool showProgressDialog = false;
   List<dynamic> sinCompletar = [];
   dynamic usuario = {};
-  dynamic latlng;
+  double currentLatitude = 0;
+  double currentLongitude = 0;
+  late Timer _ubicacionTimer;
+  //late Future<Widget> _mapFuture;
+  Set<Polyline> polylines = {};
+  BitmapDescriptor? _truckIcon;
 
   @override
   void initState() {
     super.initState();
-    _getCurrentLocation();
+    initialize();
+  }
+
+  initialize() async {
     _handleDate();
     _getPedidosSinCompletar();
     getRutasFiltradas();
+    _loadCustomMarker();
+
+    await getUbicacionVehiculo();
+    _ubicacionTimer = Timer.periodic(Duration(seconds: 20), (timer) {
+      getUbicacionVehiculo();
+    });
   }
 
+  void _loadCustomMarker() async {
+    final icon = await BitmapDescriptor.fromAssetImage(
+      const ImageConfiguration(size: Size(24, 24)),
+      'assets/images/truck64.png',
+    );
+    setState(() {
+      _truckIcon = icon;
+    });
+  }
+
+  Future<void> getUbicacionVehiculo() async {
+    try {
+      var usuario = await obtenerUsuario();
+      var dataOp = {
+        'placa': usuario['idUnidad'],
+        'token': usuario['token'],
+        'checkConsumoUM': true,
+      };
+
+      var evento = await doFetchJSON(URL_GESTION, {
+        'data_op': dataOp,
+        'op': 'READ-OBTENEREVENTOACTUALVEHICULO',
+      });
+
+      print(evento);
+
+      if (evento['error'] == false) {
+        final lat = double.tryParse(evento['data'][0]['LATITUD'].toString());
+        final lng = double.tryParse(evento['data'][0]['LONGITUD'].toString());
+
+        if (lat != null && lng != null) {
+          setState(() {
+            _currentPosition = Position(
+              latitude: lat,
+              longitude: lng,
+              timestamp: DateTime.now(),
+              accuracy: 0.0,
+              altitude: 0.0,
+              heading: 0.0,
+              speed: 0.0,
+              speedAccuracy: 0.0,
+              altitudeAccuracy: 0.0,
+              headingAccuracy: 0.0,
+            );
+            currentLatitude = lat;
+            currentLongitude = lng;
+          });
+        } else {
+          print("Latitud o longitud no válidas");
+        }
+      }
+    } catch (error) {
+      print("getUbicacionVehiculo err");
+      print(error);
+    }
+  }
+
+  /*
   _getCurrentLocation() async {
-    Position position = await Geolocator.getCurrentPosition(
+    try {
+         Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high);
     setState(() {
       _currentPosition = position;
     });
+    print("location obtained");
+    } catch (e) {
+      print("_getCurrentLocation err");
+      print(e);
+    }
+ 
   }
+  */
 
   _handleDate() {
     setState(() {
@@ -259,7 +344,6 @@ class _TabPendientesState extends State<TabPendientes> {
   void buscar(String text) {
     try {
       if (text.isNotEmpty) {
-        print(text);
         final coincidencias = backupPorFecha.where((e) {
           return e['codigoPedido']
                   .toString()
@@ -322,9 +406,6 @@ class _TabPendientesState extends State<TabPendientes> {
       }
     }
 
-    print("pendientes por fecha");
-    print(pdtesFecha);
-
     List<dynamic> todosPorFecha = [];
     for (int i = 0; i < rutasTotales.length; i++) {
       rutasTotales[i]['id'] = i;
@@ -343,7 +424,7 @@ class _TabPendientesState extends State<TabPendientes> {
       bool exclude = false;
       List<bool> values = [];
       for (var j in agrupadosPorPuntoInteres[i]) {
-        if (j['idConceptoEstadoPedido'] == ENTREGADO ||
+        if (j['idConceptoEstadoPedido'] == ENTREGA_TOTAL ||
             j['idConceptoEstadoPedido'] == ENTREGA_PARCIAL ||
             j['idConceptoEstadoPedido'] == NO_ENTREGADO_RECHAZADO) {
           values.add(true);
@@ -442,95 +523,71 @@ class _TabPendientesState extends State<TabPendientes> {
   }
   */
 
-  _mapView(List<dynamic> rutas) {
+  Widget _mapView(List<dynamic> rutas) {
+    final icon = _truckIcon;
+    final positionMarker = Marker(
+      markerId: MarkerId('current_position'),
+      position: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+      icon: icon ??
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+      infoWindow: InfoWindow(title: 'Mi ubicación'),
+    );
+    final destinationMarkers = pendientesPorFecha.map((marker) {
+      return Marker(
+          markerId: MarkerId(marker['id'].toString()),
+          position: LatLng(
+            double.parse(marker['latPuntoInteres']),
+            double.parse(marker['lngPuntoInteres']),
+          ),
+          infoWindow: InfoWindow(
+            title: 'Cliente: ${marker['nombrePuntoInteres']}',
+            snippet:
+                'Código Pedido: ${marker['codigoPedido']}',
+          ),
+          onTap: () async {
+            setState(() {
+              destination = marker;
+            });
+
+            final ruta = await getRouteCoordinates(
+              LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+              LatLng(
+                double.parse(marker['latPuntoInteres']),
+                double.parse(marker['lngPuntoInteres']),
+              ),
+            );
+
+            setState(() {
+              polylines = {
+                Polyline(
+                  polylineId: PolylineId("ruta"),
+                  color: Colors.orangeAccent,
+                  width: 5,
+                  points: ruta,
+                ),
+              };
+            });
+          });
+    }).toSet();
+
     if (_currentPosition == null) {
       return Center(child: CircularProgressIndicator());
     }
     return GoogleMap(
       onMapCreated: _onMapCreated,
       initialCameraPosition: CameraPosition(
-        target: LatLng(_currentPosition.latitude, _currentPosition.longitude),
+        target: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
         zoom: 12,
       ),
-      markers: pendientesPorFecha.map((marker) {
-        return Marker(
-          markerId: MarkerId(marker['id'].toString()),
-          position: LatLng(double.parse(marker['latPuntoInteres']),
-              double.parse(marker['lngPuntoInteres'])),
-          onTap: () {
-            setState(() {
-              destination = marker;
-            });
-          },
-        );
-      }).toSet(),
+      markers: {positionMarker, ...destinationMarkers},
+      gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+        Factory<OneSequenceGestureRecognizer>(
+          () => EagerGestureRecognizer(),
+        ),
+      },
+      polylines: polylines,
     );
   }
-
-/*
-  Widget mapView() {
-    return FlutterMap(
-        mapController: mapController,
-        options: MapOptions(
-          center: widget.initialLatLng,
-          zoom: 13.0,
-          plugins: [DirectionsPlugin()],
-        ),
-        layers: [
-          TileLayerOptions(
-            urlTemplate:
-                "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-            subdomains: ['a', 'b', 'c'],
-          ),
-          MarkerLayerOptions(
-            markers: [
-              Marker(
-                point: widget.initialLatLng,
-                builder: (ctx) => Image.asset(
-                  'assets/images/pin_my_location.png',
-                  width: 50.0,
-                  height: 50.0,
-                ),
-              ),
-              ...widget.rutas.map((marker) {
-                return Marker(
-                  point: LatLng(
-                    double.parse(marker['latPuntoInteres'].toString()),
-                    double.parse(marker['lngPuntoInteres'].toString()),
-                  ),
-                  builder: (ctx) => GestureDetector(
-                    onTap: () => widget.markerClick(marker),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.location_on,
-                          color: Colors.red,
-                          size: 40,
-                        ),
-                        Text(marker['nombrePuntoInteres']),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ],
-          ),
-          DirectionsLayerOptions(
-            apiKey: widget.googleMapsApiKey,
-            origin: widget.initialLatLng,
-            destination: widget.destinationLatLng,
-            onRouteReady: (RouteResult result) {
-              setState(() {
-                // Update your state with the result data if needed
-              });
-            },
-            onRouteError: (errorMessage) {
-              print('Route error: $errorMessage');
-            },
-          ),
-        ],
-      ),
-  }*/
 
   Widget ViewListaPendientes() {
     return SingleChildScrollView(
@@ -554,11 +611,6 @@ class _TabPendientesState extends State<TabPendientes> {
             default:
               borderColor = AppColors.BoltrackMenuBlue;
           }
-          /*
-          print("METAAA");
-          var meta = json.decode(item['meta']);
-          print(meta);
-          */
           return GestureDetector(
             onTap: () {
               verDetalle(json.encode(item));
@@ -631,14 +683,12 @@ class _TabPendientesState extends State<TabPendientes> {
                           height: 20.0,
                         ),
                         SizedBox(width: 8.0),
-                        // Uncomment and implement the following line if you have the location data and getKilometros method
-                        // Text(
-                        //   ubicacionActual['latitude'] != null &&
-                        //           ubicacionActual['longitude'] != null
-                        //       ? '${getKilometros(ubicacionActual['latitude'], ubicacionActual['longitude'], item['latPuntoInteres'], item['lngPuntoInteres'])} km'
-                        //       : 'Calculando...',
-                        //   style: TextStyle(fontSize: 14),
-                        // ),
+                        Text(
+                          currentLatitude != 0 && currentLongitude != 0
+                              ? '${getKilometros(currentLatitude, currentLongitude, double.parse(item['latPuntoInteres']), double.parse(item['lngPuntoInteres']))} km'
+                              : 'Calculando...',
+                          style: TextStyle(fontSize: 14),
+                        ),
                       ],
                     ),
                     SizedBox(height: 4.0),
@@ -677,7 +727,7 @@ class _TabPendientesState extends State<TabPendientes> {
     );
   }
 
-  Widget ViewAgrpadosPorCliente() {
+  Widget ViewAgrupadosPorCliente() {
     return SingleChildScrollView(
         child: agrupadosPorPuntoInteres.isNotEmpty
             ? ListView.builder(
@@ -686,7 +736,7 @@ class _TabPendientesState extends State<TabPendientes> {
                   var item = agrupadosPorPuntoInteres[index];
                   int iniciados = 0;
                   item.forEach((e) {
-                    if (e['idConceptoEstadoPedido'] == ENTREGADO ||
+                    if (e['idConceptoEstadoPedido'] == ENTREGA_TOTAL ||
                         e['idConceptoEstadoPedido'] == ENTREGA_PARCIAL ||
                         e['idConceptoEstadoPedido'] == NO_ENTREGADO_RECHAZADO) {
                       iniciados++;
@@ -799,7 +849,7 @@ class _TabPendientesState extends State<TabPendientes> {
                             ? Colors.blue
                             : e['idConceptoEstadoPedido'] == EN_RUTA
                                 ? Colors.lightBlueAccent
-                                : e['idConceptoEstadoPedido'] == ENTREGADO
+                                : e['idConceptoEstadoPedido'] == ENTREGA_TOTAL
                                     ? Colors.lightGreen
                                     : e['idConceptoEstadoPedido'] ==
                                             ENTREGA_PARCIAL
@@ -854,10 +904,10 @@ class _TabPendientesState extends State<TabPendientes> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'EN RUTA > ${estado == ENTREGADO ? 'ENTREGADO' : estado == ENTREGA_PARCIAL ? 'ENTREGA PARCIAL' : 'NO ENTREGADO'}',
+                              'EN RUTA > ${estado == ENTREGA_TOTAL ? 'ENTREGADO' : estado == ENTREGA_PARCIAL ? 'ENTREGA PARCIAL' : 'NO ENTREGADO'}',
                               style: TextStyle(
                                 fontWeight: FontWeight.w900,
-                                color: estado == ENTREGADO
+                                color: estado == ENTREGA_TOTAL
                                     ? Colors.green
                                     : estado == ENTREGA_PARCIAL
                                         ? Colors.orange
@@ -992,7 +1042,7 @@ class _TabPendientesState extends State<TabPendientes> {
                       Container(
                         margin: EdgeInsets.only(left: 4),
                         height: 40,
-                        width: 150,
+                        width: 120,
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.all(Radius.circular(7)),
@@ -1010,54 +1060,56 @@ class _TabPendientesState extends State<TabPendientes> {
                       ),
                     ],
                   ),
-                  Row(
-                    children: [
-                      /*
-                      Switch(
-                        value: filterByPuntoInteres,
-                        onChanged: (val) {
-                          setState(() {
-                            filterByPuntoInteres = val;
-                          });
-                        },
-                        thumbColor: MaterialStateProperty.all(Colors.white),
-                      ),*/
-                      if (sinCompletar.isNotEmpty)
+                  Expanded(
+                    child: Row(
+                      children: [
+                        /*
+                        Switch(
+                          value: filterByPuntoInteres,
+                          onChanged: (val) {
+                            setState(() {
+                              filterByPuntoInteres = val;
+                            });
+                          },
+                          thumbColor: MaterialStateProperty.all(Colors.white),
+                        ),*/
+                        if (sinCompletar.isNotEmpty)
+                          GestureDetector(
+                            onTap: () => setState(() {
+                              showPedidosRezagados = true;
+                            }),
+                            child: Container(
+                              padding: EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.lightBlue,
+                                borderRadius: BorderRadius.circular(7),
+                              ),
+                              child: Icon(
+                                Icons.local_shipping_outlined,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
                         GestureDetector(
                           onTap: () => setState(() {
-                            showPedidosRezagados = true;
+                            showMapView = !showMapView;
+                            //print(rutasTotales);
                           }),
                           child: Container(
+                            margin: EdgeInsets.only(left: 4),
                             padding: EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: Colors.lightBlue,
+                              color: Color(0xFFFA6532),
                               borderRadius: BorderRadius.circular(7),
                             ),
                             child: Icon(
-                              Icons.local_shipping_outlined,
+                              showMapView ? Icons.list_alt : Icons.map,
                               color: Colors.white,
                             ),
                           ),
                         ),
-                      GestureDetector(
-                        onTap: () => setState(() {
-                          showMapView = !showMapView;
-                          print(rutasTotales);
-                        }),
-                        child: Container(
-                          margin: EdgeInsets.only(left: 4),
-                          padding: EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Color(0xFFFA6532),
-                            borderRadius: BorderRadius.circular(7),
-                          ),
-                          child: Icon(
-                            showMapView ? Icons.list_alt : Icons.map,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -1067,7 +1119,7 @@ class _TabPendientesState extends State<TabPendientes> {
                   ? _mapView(rutasTotales)
                   : pendientesPorFecha.isNotEmpty
                       ? filterByPuntoInteres
-                          ? ViewAgrpadosPorCliente()
+                          ? ViewAgrupadosPorCliente()
                           : ViewListaPendientes()
                       : Center(
                           child: Text(

@@ -24,17 +24,24 @@ if (flutterVersionName == null) {
 
 android {
     namespace "bo.com.boltrack.ultimamilla"
-    compileSdkVersion flutter.compileSdkVersion
+    compileSdk 35
     ndkVersion flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = '17'
     }
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
+
 
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
@@ -45,10 +52,19 @@ android {
         applicationId "bo.com.boltrack.ultimamilla"
         // You can update the following values to match your application needs.
         // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
-        minSdkVersion 21//flutter.minSdkVersion
-        targetSdkVersion flutter.targetSdkVersion
+        minSdk 21//flutter.minSdkVersion
+        targetSdk 35
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
+    }
+
+    signingConfigs {
+        release {
+            storeFile file("./boltracksrl__ultimamilla-keystore.jks")
+            storePassword "78167d3f19974a3b8fd10e6d2f2a5ac0"
+            keyAlias "QGJvbHRyYWNrc3JsL3VsdGltYW1pbGxh"
+            keyPassword "7ac259a585754b6cbff949ab629820e7"
+        }
     }
 
     buildTypes {

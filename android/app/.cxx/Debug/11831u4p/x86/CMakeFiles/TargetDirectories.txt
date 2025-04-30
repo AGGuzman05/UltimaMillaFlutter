@@ -1,0 +1,2 @@
+/Users/boltrack/Documents/BOLTRACK/Desarrollo/Ultima Milla Flutter/UM Flutter/android/app/.cxx/Debug/11831u4p/x86/CMakeFiles/edit_cache.dir
+/Users/boltrack/Documents/BOLTRACK/Desarrollo/Ultima Milla Flutter/UM Flutter/android/app/.cxx/Debug/11831u4p/x86/CMakeFiles/rebuild_cache.dir

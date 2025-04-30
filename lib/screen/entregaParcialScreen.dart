@@ -1,13 +1,21 @@
-// ignore_for_file: prefer_const_constructors, unnecessary_this, avoid_print, use_build_context_synchronously
+// ignore_for_file: prefer_const_constructors, unnecessary_this, avoid_print, use_build_context_synchronously, prefer_interpolation_to_compose_strings, prefer_const_literals_to_create_immutables, non_constant_identifier_names
 
 import 'dart:convert';
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:ultimaMillaFlutter/util/const/base_url.dart';
+import 'package:signature/signature.dart';
+import 'package:ultimaMillaFlutter/screen/QRScreen.dart';
+import 'package:ultimaMillaFlutter/screen/actualizarUbicacionScreen.dart';
+import 'package:ultimaMillaFlutter/screen/modals/DialogHelper.dart';
+import 'package:ultimaMillaFlutter/screen/pendientesScreen.dart';
+import 'package:ultimaMillaFlutter/util/const/parametroConexion.dart';
 import 'package:ultimaMillaFlutter/util/const/constants.dart';
 import '../services/shared_functions.dart';
+import 'package:image_picker/image_picker.dart';
 
 class EntregaParcialScreen extends StatefulWidget {
   const EntregaParcialScreen(
@@ -37,7 +45,8 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
   bool pictureTaken = false;
   String base64 = '';
   bool sign = false;
-  String signUri = '';
+  String firma = '';
+  dynamic bytesFirma;
   int idQuienRecibe = -1;
   bool mostrarInputOtroReceptor = false;
   String valorOtroReceptor = '';
@@ -49,22 +58,41 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
   int idEstadoPago = -1;
   bool showModal = false;
   bool showProgressUploading = false;
-  List<dynamic> entregas = [];
+
   bool omitirFirma = false;
   bool omitirFotografia = false;
   bool omitirQuienrecibe = false;
   bool omitirEstadoPago = false;
   List<dynamic> entregaUnica = [];
+  List<dynamic> entregas = [];
   Map usuario = {};
   dynamic pedido;
-  late CameraController _cameraController;
+
+  List RADIO_QUIEN_RECIBE = [
+    {"label": "CLIENTE", "value": CLIENTE},
+    {"label": "FAMILIAR", "value": FAMILIAR},
+    {"label": "CONSERJE", "value": CONSERJE},
+    {"label": "OTRO", "value": OTRO_RECIBE},
+  ];
+
+  List RADIO_ESTADO_PAGO = [
+    {"label": "PAGADO A TIENDA", "value": PAGADO_A_TIENDA},
+    {"label": "PAGADO A CONDUCTOR", "value": PAGADO_A_CONDUCTOR},
+    {"label": "PENDIENTE PAGO", "value": PENDIENTE_PAGO},
+    {"label": "CREDITO", "value": CREDITO},
+    {"label": "TRANSFERENCIA", "value": TRANSFERENCIA},
+    {"label": "OTRO", "value": OTRO_PAGO},
+  ];
+
+  SignatureController controllerFirma = SignatureController(
+    penStrokeWidth: 3,
+    penColor: Colors.black,
+    exportBackgroundColor: Colors.white,
+  );
 
   @override
   void initState() {
     super.initState();
-    setState(() {
-      pedido = widget.pedido;
-    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       initValues();
       getCameraPermission();
@@ -84,7 +112,7 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
     }).toList();
 
     var entregaUnica = entregas.firstWhere((obj) {
-      return obj['codigoPedido'] == pedido['codigoPedido'];
+      return obj['codigoPedido'] == widget.pedido['codigoPedido'];
     }, orElse: () => null);
 
     setState(() {
@@ -94,11 +122,14 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
   }
 
   Future<void> initValues() async {
-    var user = await obtenerUsuario();
+    usuario = await obtenerUsuario();
     setState(() {
-      usuario = user;
-      if ([MADISA, MADISALP, MADISACBBA, MADISASC]
-          .contains(user['idEmpresa'])) {
+      this.pedido = widget.pedido;
+      this.usuario = usuario;
+      if (usuario['idEmpresa'] == MADISA ||
+          usuario['idEmpresa'] == MADISALP ||
+          usuario['idEmpresa'] == MADISACBBA ||
+          usuario['idEmpresa'] == MADISASC) {
         this.currentView = QUIEN_RECIBE_VIEW;
         this.omitirFotografia = true;
         this.omitirFirma = true;
@@ -120,26 +151,6 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
     });
   }
 
-  Future<void> openViewFirma() async {
-    print("openViewFirma");
-    setState(() {
-      this.viewFirma = true;
-      this.viewForm = false;
-    });
-  }
-
-  Future<void> openViewForm() async {
-    print("openViewForm");
-    setState(() {
-      this.viewFirma = false;
-      this.viewForm = true;
-    });
-  }
-
-  Future<void> updateComentario() async {
-    print("updateComentario");
-  }
-
   void anteriorMadisa(int currentView) {
     if (currentView == QUIEN_RECIBE_VIEW) {
       Navigator.of(context).pop();
@@ -150,9 +161,9 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
     }
   }
 
-  Future<void> anterior() async {
+  Future<void> anteriorOnClick() async {
     print("anterior");
-    int empresa = this.usuario['idEmpresa'];
+    int? empresa = int.tryParse(this.usuario['idEmpresa'] ?? 0) ;
     if ([MADISA, MADISALP, MADISACBBA, MADISASC].contains(empresa)) {
       anteriorMadisa(currentView);
     } else {
@@ -184,9 +195,9 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
     }
   }
 
-  Future<void> siguiente() async {
+  Future<void> siguienteOnClick() async {
     print("siguiente");
-    int empresa = this.usuario['idEmpresa'];
+    int? empresa = int.tryParse(usuario['idEmpresa'] ?? 0) ;
     if ([MADISA, MADISALP, MADISACBBA, MADISASC].contains(empresa)) {
       siguienteMadisa(currentView);
     } else {
@@ -223,7 +234,6 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
       });
 
       var usuario = await obtenerUsuario();
-      var params = pedido;
       var entregasList = unique ? entregaUnica : entregas;
       List<Map<String, dynamic>> results = [];
 
@@ -250,17 +260,17 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
               'idPedido': entrega['idPedido'],
               'idDetallePedido': entrega['idDetallePedido'],
               'idEstadoFinal': ENTREGA_PARCIAL,
-              'idSubEstadoFinal': params['idSubEstado'],
+              'idSubEstadoFinal': widget.idSubestado,
               'idPreguntaConcepto': PREGUNTA_FOTOGRAFIA,
               'idRespuestaConcepto': FOTOGRAFIA,
               'descripcionOtro': '',
               'nombreReceptor': '',
               'esArchivo': omitirFotografia ? 0 : 1,
               'tipoArchivo': '.jpg',
-              'notaObservacion': params['comentario'],
+              'notaObservacion': widget.comentario,
               'direccionNombreArchivo': '',
               'base64': omitirFotografia ? '' : base64,
-              'tiempoDescarga': params['tiempoDescarga'],
+              'tiempoDescarga': widget.tiempoDescarga,
               'montoPagadoAConductor': '',
               'otroEstadoPago': '',
             },
@@ -268,7 +278,7 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
               'idPedido': entrega['idPedido'],
               'idDetallePedido': entrega['idDetallePedido'],
               'idEstadoFinal': ENTREGA_PARCIAL,
-              'idSubEstadoFinal': params['idSubEstado'],
+              'idSubEstadoFinal': widget.idSubestado,
               'idPreguntaConcepto': PREGUNTA_QUIEN_RECIBE,
               'idRespuestaConcepto':
                   omitirQuienrecibe ? OTRO_RECIBE : idQuienRecibe,
@@ -276,9 +286,9 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
               'nombreReceptor': omitirQuienrecibe ? '' : nombreConcat,
               'esArchivo': 0,
               'tipoArchivo': '',
-              'notaObservacion': params['comentario'],
+              'notaObservacion': widget.comentario,
               'direccionNombreArchivo': '',
-              'tiempoDescarga': params['tiempoDescarga'],
+              'tiempoDescarga': widget.tiempoDescarga,
               'montoPagadoAConductor': '',
               'otroEstadoPago': '',
             },
@@ -286,17 +296,17 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
               'idPedido': entrega['idPedido'],
               'idDetallePedido': entrega['idDetallePedido'],
               'idEstadoFinal': ENTREGA_PARCIAL,
-              'idSubEstadoFinal': params['idSubEstado'],
+              'idSubEstadoFinal': widget.idSubestado,
               'idPreguntaConcepto': PREGUNTA_FIRMA,
               'idRespuestaConcepto': FIRMA,
               'descripcionOtro': '',
               'nombreReceptor': '',
               'esArchivo': omitirFirma ? 0 : 1,
               'tipoArchivo': '.png',
-              'notaObservacion': params['comentario'],
+              'notaObservacion': widget.comentario,
               'direccionNombreArchivo': '',
-              'base64': omitirFirma ? '' : signUri,
-              'tiempoDescarga': params['tiempoDescarga'],
+              'base64': omitirFirma ? '' : firma,
+              'tiempoDescarga': widget.tiempoDescarga,
               'montoPagadoAConductor': '',
               'otroEstadoPago': '',
             },
@@ -304,7 +314,7 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
               'idPedido': entrega['idPedido'],
               'idDetallePedido': entrega['idDetallePedido'],
               'idEstadoFinal': ENTREGA_PARCIAL,
-              'idSubEstadoFinal': params['idSubEstado'],
+              'idSubEstadoFinal': widget.idSubestado,
               'idPreguntaConcepto': PREGUNTA_ESTADO_PAGO,
               'idRespuestaConcepto':
                   omitirEstadoPago ? OTRO_PAGO : idEstadoPago,
@@ -312,9 +322,9 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
               'nombreReceptor': '',
               'esArchivo': 0,
               'tipoArchivo': '',
-              'notaObservacion': params['comentario'],
+              'notaObservacion': widget.comentario,
               'direccionNombreArchivo': '',
-              'tiempoDescarga': params['tiempoDescarga'],
+              'tiempoDescarga': widget.tiempoDescarga,
               'montoPagadoAConductor':
                   omitirEstadoPago ? '' : montoPagadoAConductor,
               'otroEstadoPago': omitirEstadoPago ? '' : otroPagoConcat,
@@ -363,9 +373,9 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
             'dataWF': resWF,
             'objWF': data_opWF,
             'objTE': data_opTE,
-            'info': params,
+            'info': pedido,
           });
-          //enviarCorreo();
+          enviarCorreo(pedido);
         } catch (error) {
           print(error);
           results.add({
@@ -374,12 +384,14 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
             'dataWF': resWF,
             'objWF': data_opWF,
             'objTE': data_opTE,
-            'info': params,
+            'info': pedido,
           });
         }
       }
 
       List<Map<String, dynamic>> noCompletados = [];
+      print("RESSULTS");
+      print(results);
       if (results.every((e) {
         if (e['data']?['error'] == true || e['data'] == null) {
           noCompletados.add(e);
@@ -395,10 +407,26 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
               content: Text('Se ha marcado el pedido como ENTREGA PARCIAL')));
         }
 
-        if (params['latPuntoInteres'] != 0 || params['lngPuntoInteres'] != 0) {
-          Navigator.pushNamed(context, 'QR', arguments: params);
+        if (pedido['latPuntoInteres'].toString() != "0" ||
+            pedido['lngPuntoInteres'].toString() != "0") {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => QRScreen(
+                pedido: jsonEncode(widget.pedido),
+              ),
+            ),
+          );
         } else {
-          Navigator.pushNamed(context, 'ACTUALIZAR LATLNG', arguments: params);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ActualizarUbicacionScreen(
+                pedido: jsonEncode(widget.pedido),
+                estado: ENTREGA_PARCIAL,
+              ),
+            ),
+          );
         }
       } else {
         print(noCompletados);
@@ -410,7 +438,12 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(
                 'Ocurrió un error. El pedido se guardó para que se pueda finalizar después')));
-        //Navigator.pushNamed(context, 'ENRUTA');
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PendientesScreen(),
+          ),
+        );
       }
 
       setState(() {
@@ -438,12 +471,13 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
   }
 
   Future<List<dynamic>> obtenerRutas() async {
-    final response = await doFetchJSON(
-        URL_UM,
-        ({
-          'data_op': {'token': usuario['token']},
-          'op': 'READ-OBTENERASIGNACIONPEDIDOSULTIMAMILLA',
-        }));
+    var usuario = await obtenerUsuario();
+    final response = await doFetchJSON(URL_UM, {
+      'data_op': {'token': usuario['token']},
+      'op': 'READ-OBTENERASIGNACIONPEDIDOSULTIMAMILLA',
+    });
+
+    print(response);
 
     if (response['error'] == false) {
       return response['data'];
@@ -476,44 +510,42 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
     }
   }
 
-  Future<void> takePicture() async {
+  Future<void> pickOrTakePhoto() async {
     try {
-      setState(() {
-        showProgressDialogCamera = true;
-      });
+      XFile? pickedFile;
+      dynamic status;
 
-      if (_cameraController != null && _cameraController!.value.isInitialized) {
-        final XFile picture = await _cameraController!.takePicture();
-        final data64 = await picture.readAsBytes();
-        final base64String = base64Encode(data64);
-
-        setState(() {
-          base64 = "data:image/jpg;base64,$base64String";
-          pictureTaken = true;
-          showCamera = false;
-          showProgressDialogCamera = false;
-        });
+      if (!kIsWeb) status = await Permission.photos.request();
+      if (status != null || kIsWeb) {
+        final ImagePicker picker = ImagePicker();
+        pickedFile = await picker.pickImage(source: ImageSource.camera);
+      } else {
+        DialogHelper.showSimpleDialog(
+            context, "Alerta", "Necesita habilitar los permisos");
+        return;
       }
-    } catch (err) {
-      print(err);
+
+      if (pickedFile != null) {
+        Uint8List imageBytes;
+        imageBytes = await pickedFile.readAsBytes();
+        List<int> byteList = imageBytes.toList();
+        String base64Image = base64Encode(byteList);
+        setState(() {
+          base64 = base64Image;
+        });
+      } else {
+        print("No se seleccionó ninguna imagen o ocurrió un error.");
+      }
+    } catch (err, stackTrace) {
+      print('Error al seleccionar la imagen: $err');
+      print(stackTrace);
     }
   }
 
-  void handleSignature(String signature) {
-    setState(() {
-      viewFirma = false;
-      viewForm = true;
-      sign = true;
-      signUri = signature;
-    });
-  }
-
   void mostrarAlertaFormularios() {
-    setState(() {
-      showModal = false;
-    });
-    print(
-        "Debe rellenar los formularios o seleccionar la opción 'OMITIR' para cada uno");
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+            "Debe rellenar los formularios o seleccionar la opción OMITIR para cada uno")));
   }
 
   double _getProgressWidth(int view) {
@@ -532,86 +564,158 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
 
   Widget _buildProgressBar() {
     return LinearProgressIndicator(
-      value: 0.25, // Cambiar el valor de acuerdo al progreso actual
+      value: _getProgressWidth(currentView),
       backgroundColor: Colors.grey[300],
       valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
     );
   }
 
-  // Widget para mostrar la cámara y los botones relacionados
-  Widget _buildCameraWidget() {
-    return showCamera
-        ? Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              CameraPreview(_cameraController),
-              SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: takePicture,
-                      child: Text("TOMAR FOTO"),
-                    ),
-                  ),
-                  SizedBox(width: 10),
-                  //IconButton(
-                  //  onPressed: changeFlash,
-                  //  icon: Icon(
-                  //    flashOn ? Icons.flash_on : Icons.flash_off,
-                  //    size: 30,
-                  //  ),
-                  //),
-                ],
-              ),
-              SizedBox(height: 10),
-              //_buildProgressDialog(),
-            ],
-          )
-        : SizedBox.shrink();
-  }
-
-  // Widget para mostrar la vista previa de la foto tomada
   Widget _buildPhotoPreview() {
-    return pictureTaken
-        ? Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Image.memory(
-                // Mostrar la imagen base64 (debes implementar esta lógica según tu uso)
-                base64Decode(base64),
-                fit: BoxFit.cover,
-              ),
-              SizedBox(height: 10),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    showCamera = true;
-                    pictureTaken = false;
-                  });
-                },
-                child: Text("VOLVER A TOMAR FOTO"),
-              ),
-            ],
+    return base64 != ""
+        ? Center(
+            child: Image.memory(
+              base64Decode(base64),
+              fit: BoxFit.cover,
+            ),
           )
         : SizedBox.shrink();
   }
 
-  // Widget para mostrar el checkbox de omitir fotografía
-  Widget _buildOmitirFotoCheckbox() {
-    return CheckboxListTile(
-      title: Text("OMITIR FOTO"),
-      value: omitirFotografia,
-      onChanged: (value) {
-        setState(() {
-          omitirFotografia = value!;
-        });
+  showModalFinalizar() {
+    var nombrePuntoInteres = widget.pedido["nombrePuntoInteres"];
+    var fechaSelected = widget.date;
+    print(entregaUnica);
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          contentPadding: EdgeInsets.all(0),
+          content: Container(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(10),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.close, color: Colors.black),
+                            onPressed: () {
+                              setState(() {
+                                showModal = false;
+                              });
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ],
+                      ),
+                      entregas.length > 1
+                          ? Container(
+                              padding: EdgeInsets.all(5),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Text(
+                                'Hay ${entregas.length} entregas correspondientes a "$nombrePuntoInteres" para la fecha $fechaSelected',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                ),
+                              ),
+                            )
+                          : Container(),
+                      SizedBox(height: 10),
+                      Text(
+                        'Marcar como ENTREGA PARCIAL?',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                      entregas.length > 1
+                          ? GestureDetector(
+                              onTap: () => {
+                                if ((base64.isNotEmpty ||
+                                        omitirFotografia == true) &&
+                                    (firma.isNotEmpty || omitirFirma == true) &&
+                                    (idEstadoPago != -1 ||
+                                        omitirEstadoPago == true) &&
+                                    (idQuienRecibe != -1 ||
+                                        omitirQuienrecibe == true))
+                                  {
+                                    Navigator.of(context).pop(),
+                                    finalizar(false)
+                                  }
+                                else
+                                  mostrarAlertaFormularios()
+                              },
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                alignment: Alignment.center,
+                                margin: EdgeInsets.symmetric(vertical: 15),
+                                child: Text(
+                                  'Todos los pedidos de este cliente',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w400,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Container(),
+                      GestureDetector(
+                        onTap: () => {
+                          if ((base64.isNotEmpty || omitirFotografia == true) &&
+                              (firma.isNotEmpty || omitirFirma == true) &&
+                              (idEstadoPago != -1 ||
+                                  omitirEstadoPago == true) &&
+                              (idQuienRecibe != -1 ||
+                                  omitirQuienrecibe == true))
+                            {Navigator.of(context).pop(), finalizar(true)}
+                          else
+                            mostrarAlertaFormularios()
+                        },
+                        child: Container(
+                          padding:
+                              EdgeInsets.symmetric(vertical: 5, horizontal: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.blue,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          alignment: Alignment.center,
+                          margin: EdgeInsets.symmetric(vertical: 15),
+                          child: Text(
+                            'Solo el pedido ${entregaUnica[0]['codigoPedido']}',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w400,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
       },
     );
   }
 
-  // Widget para mostrar los botones de navegación inferior (ANTERIOR y SIGUIENTE)
   Widget _buildNavigationButtons() {
     return Padding(
       padding: EdgeInsets.all(10),
@@ -619,13 +723,16 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           ElevatedButton(
-            onPressed: anterior,
+            onPressed: anteriorOnClick,
             child: Text("ANTERIOR"),
           ),
-          ElevatedButton(
-            onPressed: siguiente,
-            child: Text("SIGUIENTE"),
-          ),
+          currentView != ESTADO_PAGO_VIEW
+              ? ElevatedButton(
+                  onPressed: siguienteOnClick,
+                  child: Text("SIGUIENTE"),
+                )
+              : ElevatedButton(
+                  onPressed: showModalFinalizar, child: Text("FINALIZAR")),
         ],
       ),
     );
@@ -647,11 +754,36 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: 10),
-                _buildCameraWidget(),
-                SizedBox(height: 10),
                 _buildPhotoPreview(),
                 SizedBox(height: 10),
-                _buildOmitirFotoCheckbox(),
+                if (kIsWeb)
+                  Center(
+                    child: Text(
+                        "No se puede tomar foto desde un ordenador de escritorio."),
+                  )
+                else
+                  ElevatedButton(
+                    onPressed: pickOrTakePhoto,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.max,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text("TOMAR FOTO"),
+                        SizedBox(width: 4),
+                        Icon(Icons.camera),
+                      ],
+                    ),
+                  ),
+                SizedBox(height: 10),
+                CheckboxListTile(
+                  title: Text("OMITIR FOTO"),
+                  value: omitirFotografia,
+                  onChanged: (value) {
+                    setState(() {
+                      omitirFotografia = value!;
+                    });
+                  },
+                ),
               ],
             ),
           ),
@@ -660,11 +792,292 @@ class _EntregaParcialScreenState extends State<EntregaParcialScreen> {
     );
   }
 
+  Widget viewReceptorScreen() {
+    return SingleChildScrollView(
+        child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildProgressBar(),
+        Padding(
+          padding: const EdgeInsets.all(10.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'QUIEN RECIBE?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 10),
+              Column(
+                children: RADIO_QUIEN_RECIBE.asMap().entries.map((entry) {
+                  int idx = entry.key;
+                  dynamic model = entry.value;
+                  return RadioListTile(
+                    value: model["value"],
+                    groupValue: idQuienRecibe,
+                    title: Text(model["label"]),
+                    onChanged: (value) {
+                      setState(() {
+                        idQuienRecibe = value;
+                        if (value == OTRO_RECIBE) {
+                          mostrarInputOtroReceptor = true;
+                        } else {
+                          mostrarInputOtroReceptor = false;
+                          valorOtroReceptor = '';
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              mostrarInputOtroReceptor
+                  ? TextField(
+                      onChanged: (text) {
+                        setState(() {
+                          valorOtroReceptor = text;
+                        });
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'Cargo o relacion de quien recibio el pedido',
+                      ),
+                    )
+                  : Container(),
+              TextField(
+                onChanged: (text) {
+                  setState(() {
+                    nombreReceptor = text;
+                  });
+                },
+                decoration: InputDecoration(
+                  hintText: 'Nombre y Apellido de quien recibio el pedido',
+                ),
+              ),
+              CheckboxListTile(
+                title: Text('OMITIR DATOS RECEPTOR'),
+                value: omitirQuienrecibe,
+                onChanged: (bool? value) {
+                  print(value);
+                  setState(() {
+                    omitirQuienrecibe = value!;
+                  });
+                },
+              ),
+            ],
+          ),
+        )
+      ],
+    ));
+  }
+
+  Widget viewFirmaScreen(
+    SignatureController controllerFirma,
+  ) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildProgressBar(),
+          firma == ""
+              ? Padding(
+                  padding: const EdgeInsets.all(10.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "FIRMA",
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                      ElevatedButton(
+                          onPressed: () async {
+                            dynamic image = await controllerFirma.toPngBytes();
+                            setState(() {
+                              firma = "data:image/png;base64," +
+                                  base64Encode(image);
+                              bytesFirma = image;
+                            });
+                          },
+                          style: ButtonStyle(
+                              elevation: MaterialStateProperty.all(7),
+                              backgroundColor: MaterialStateColor.resolveWith(
+                                  (states) => Colors.orange)),
+                          child: Text(
+                            "Confirmar firma",
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          )),
+                      SizedBox(
+                        height: 14,
+                      ),
+                      Container(
+                          decoration:
+                              BoxDecoration(border: Border.all(width: 2)),
+                          child: Signature(
+                            controller: controllerFirma,
+                            width: 350,
+                            height: 200,
+                            backgroundColor: Colors.white,
+                          ))
+                    ],
+                  ),
+                )
+              : Padding(
+                  padding: const EdgeInsets.all(10.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "FIRMA",
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                      ElevatedButton(
+                          onPressed: () async {
+                            setState(() {
+                              firma = "";
+                              controllerFirma.value = [];
+                            });
+                          },
+                          style: ButtonStyle(
+                              elevation: MaterialStateProperty.all(7),
+                              backgroundColor: MaterialStateColor.resolveWith(
+                                  (states) => Colors.orange)),
+                          child: Text(
+                            "Limpiar",
+                            style: TextStyle(color: Colors.white),
+                          )),
+                      Center(
+                        child: Image.memory(
+                          bytesFirma,
+                          width: 350,
+                          height: 200,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+          CheckboxListTile(
+            title: Text("OMITIR FIRMA"),
+            value: omitirFirma,
+            onChanged: (value) {
+              setState(() {
+                omitirFirma = value!;
+              });
+            },
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget viewEstadoPagoScreen() {
+    return SingleChildScrollView(
+        child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildProgressBar(),
+        Padding(
+          padding: const EdgeInsets.all(10.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'ESTADO PAGO',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 10),
+              Column(
+                children: RADIO_ESTADO_PAGO.asMap().entries.map((entry) {
+                  int idx = entry.key;
+                  dynamic model = entry.value;
+                  return RadioListTile(
+                    value: model["value"],
+                    groupValue: idEstadoPago,
+                    title: Text(model["label"]),
+                    onChanged: (value) {
+                      setState(() {
+                        idEstadoPago = value;
+                        if (value == PAGADO_A_CONDUCTOR) {
+                          mostrarInputMonto = true;
+                          mostrarInputOtroEstadoPago = false;
+                        } else if (value == OTRO_PAGO) {
+                          mostrarInputMonto = false;
+                          mostrarInputOtroEstadoPago = true;
+                        } else {
+                          mostrarInputMonto = false;
+                          mostrarInputOtroEstadoPago = false;
+                          montoPagadoAConductor = '';
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              mostrarInputOtroEstadoPago
+                  ? TextField(
+                      onChanged: (text) {
+                        setState(() {
+                          valorOtroEstadoPago = text;
+                        });
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'Especifique el nombre de otro estado pago',
+                      ),
+                    )
+                  : Container(),
+              mostrarInputMonto
+                  ? TextField(
+                      keyboardType: TextInputType.number,
+                      onChanged: (text) {
+                        setState(() {
+                          montoPagadoAConductor = text;
+                        });
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'Monto recibido por conductor',
+                      ),
+                    )
+                  : Container(),
+              CheckboxListTile(
+                title: Text('OMITIR DATOS ESTADO PAGO'),
+                value: omitirEstadoPago,
+                onChanged: (bool? value) {
+                  setState(() {
+                    omitirEstadoPago = value!;
+                  });
+                },
+              ),
+            ],
+          ),
+        )
+      ],
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: Text('ENTREGA PARCIAL'),
+        centerTitle: true,
+      ),
       body: Container(
-          child: currentView == FOTO_VIEW ? viewFotografiaScreen() : null),
+          child: currentView == FOTO_VIEW
+              ? viewFotografiaScreen()
+              : currentView == QUIEN_RECIBE_VIEW
+                  ? viewReceptorScreen()
+                  : currentView == FIRMA_VIEW
+                      ? viewFirmaScreen(controllerFirma)
+                      : viewEstadoPagoScreen()),
       bottomNavigationBar: _buildNavigationButtons(),
     );
   }

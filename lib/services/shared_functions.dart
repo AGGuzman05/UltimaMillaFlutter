@@ -1,5 +1,9 @@
 // ignore_for_file: avoid_print, prefer_interpolation_to_compose_strings, unnecessary_type_check, prefer_is_not_operator
 
+import 'dart:math';
+
+import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:async';
@@ -151,6 +155,77 @@ Future<dynamic> getObjectOrNull(String key) async {
     return json.decode(storedObj);
   } else {
     return null;
+  }
+}
+
+String getKilometros(double lat1, double lon1, double lat2, double lon2) {
+  try {
+    const R = 6378.137; // Radio de la tierra en km
+    double dLat = _rad(lat2 - lat1);
+    double dLong = _rad(lon2 - lon1);
+
+    double a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_rad(lat1)) * cos(_rad(lat2)) *
+        sin(dLong / 2) * sin(dLong / 2);
+
+    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    double d = R * c;
+
+    if (d > 1000) return "Distancia no definida";
+    return "${d.toStringAsFixed(2)} KM";
+  } catch (e) {
+    print(e);
+    return "No se pudo calcular ruta";
+  }
+}
+
+double _rad(double x) {
+  return x * pi / 180;
+}
+
+Future<List<LatLng>> getRouteCoordinates(LatLng origin, LatLng destination) async {
+  final apiKey = 'AIzaSyCqF9kTa-HTeUpP26qeX5ybipEIfhObI6Q';
+  final url =
+      'https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&key=$apiKey';
+
+  final response = await http.get(Uri.parse(url));
+
+  if (response.statusCode == 200) {
+    final json = jsonDecode(response.body);
+    final points = json['routes'][0]['overview_polyline']['points'];
+
+    PolylinePoints polylinePoints = PolylinePoints();
+    List<PointLatLng> result = polylinePoints.decodePolyline(points);
+
+    return result.map((e) => LatLng(e.latitude, e.longitude)).toList();
+  } else {
+    throw Exception('Error al obtener la ruta');
+  }
+}
+
+Future<dynamic> doFetchJSONv2(String url, dynamic data,
+    [String method = "POST"]) async {
+  try {
+    if (method == "GET" || method == "HEAD") {
+      if (data != null && data.isNotEmpty) {
+        print("OBJETO DATA TIENE QUE SER VACIO SI METHOD=GET/HEAD");
+        print(data);
+      }
+      data = null;
+    }
+    final usuario = await obtenerUsuario();
+    final String token = usuario['token'] as String;
+    var response = await http.post(Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          "Content-Type": "application/json"
+        },
+        body: data != null ? jsonEncode(data) : null);
+    return jsonDecode(response.body);
+  } catch (err) {
+    print('doFetchJSONV2 err');
+    print(err);
+    return {"error": true};
   }
 }
 
